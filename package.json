@@ -1,6 +1,6 @@
 {
   "name": "@luizguitm/octo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Octo: a layer on top of superpowers for Claude Code and GitHub Copilot: AI docs first, domain skills, parallel waves, model tiers, Definition of Done with screenshots, session continuity, guardrails and custom MCPs.",
   "keywords": [
     "claude-code",
@@ -13,6 +13,14 @@
   ],
   "author": "LuizGuiTM",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LuizGuiTM/octo.git"
+  },
+  "homepage": "https://github.com/LuizGuiTM/octo#readme",
+  "bugs": {
+    "url": "https://github.com/LuizGuiTM/octo/issues"
+  },
   "type": "module",
   "bin": {
     "octo": "bin/octo.js"

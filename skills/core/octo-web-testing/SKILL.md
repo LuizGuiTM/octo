@@ -45,7 +45,16 @@ and name it `<ID>-<slug>-fail-<n>.<ext>`.
 | Tool | How to save the screenshot |
 |---|---|
 | Claude in Chrome | `computer` action `screenshot` with `save_to_disk: true` and **no `scale`** (full resolution; scaled captures are unreadable in the DoD) → the result gives the saved path → copy that file to the DoD path (`cp` / `Copy-Item`) |
-| Playwright MCP | `browser_take_screenshot` with `filename: "<ID>-<slug>.png"` → saved in the server's output dir (`.octo/evidence/`, as configured by Octo; the result shows the path) → move it to the DoD path |
+| Playwright MCP | `browser_take_screenshot` with `filename` set to the **full DoD path relative to the repo root** (e.g. `docs/superpowers/dod/2026-09-24-orders/screenshots/S1-create-order.png`). Explicit names resolve against the workspace root and land there directly; only auto-named files go to `.octo/evidence/` |
+
+Tool-call discipline (learned from real runs):
+- **Read the tool's input schema; don't assume argument names.** They change between versions (Playwright
+  MCP 1.64 takes the element in `target`, older versions in `ref`).
+- **Every tool error is a stop.** Never continue a scenario past a failed click/type/wait. A silent failure
+  followed by an unchanged snapshot looks like a pass but proves nothing.
+- **Prove each action changed the page**: after a click, wait for the expected change (`browser_wait_for`
+  text / textGone, or re-read the page) before judging or capturing. If the snapshot is identical to the
+  previous one, the action didn't happen.
 
 Screenshot hygiene (learned from real runs):
 - **Confirm the state first, then capture**: read the page text or accessibility tree and check the
@@ -61,7 +70,8 @@ Then:
   credentials and the screenshot folder.
 - Judge results by reading the page (accessibility tree / page text); the screenshot is evidence, not the check.
 - Check the console and network for errors after each scenario.
-- Verify each screenshot file exists and isn't empty before recording it in the DoD.
+- Verify each screenshot file exists and isn't empty before recording it in the DoD, and that no stray
+  screenshot landed elsewhere in the repo (`git status`).
 - Optionally record a GIF of the main flow (Claude in Chrome `gif_creator`, export with `download: true`).
 
 ## 5. Report and loop

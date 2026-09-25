@@ -36,7 +36,8 @@ Add to the plan (keep superpowers' task format and add these fields):
 - Run the wave's tasks concurrently: dispatch all of the wave's implementers **in the same turn**, up to
   the configured maximum (split wider waves into batches).
 - Each implementer's brief adds: "You own only these files: … Do not touch others; report
-  BLOCKED if you must."
+  BLOCKED if you must. While working, run only YOUR tests (e.g. `node --test test/x.test.mjs`); other
+  files may be mid-edit by parallel workers, so full-suite failures during the wave are expected noise."
 - Reviews for a wave's tasks can also run in parallel.
 - **Integration gate after each wave**: run the full test suite and lint before starting the next wave.
   Parallel tasks can conflict in ways no single review sees; a red gate is debugged with

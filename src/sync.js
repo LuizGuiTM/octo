@@ -61,6 +61,11 @@ export function sync(root, config) {
   own(path.join(CATALOG_DIR, 'INDEX.md'), catalogIndex(upstream, catalog, new Set(promoted.map((s) => s.name))));
   own('.octo/octo.config.schema.json', fs.readFileSync(schemaFile()));
 
+  // Keep generated files LF on every OS: superpowers' bash scripts break with CRLF.
+  for (const pattern of ['.claude/skills/** text=auto eol=lf', '.octo/** text=auto eol=lf']) {
+    ensureLine(root, '.gitattributes', pattern, 'octo: generated files keep LF line endings (bash scripts break with CRLF)');
+  }
+
   // Session continuity runtime.
   own('.octo/bin/octo-session.mjs', fs.readFileSync(path.join(PACKAGE_ROOT, 'runtime', 'octo-session.mjs')));
   own('.octo/templates/session.md', template('session.md'));
@@ -135,11 +140,17 @@ export function sync(root, config) {
 }
 
 function ensureGitignored(root, entry, comment) {
-  const file = path.join(root, '.gitignore');
+  ensureLine(root, '.gitignore', entry, comment);
+}
+
+// Appends a line (with a comment above it) to a user-owned file, once.
+function ensureLine(root, rel, entry, comment) {
+  const file = path.join(root, rel);
   const existing = readIfExists(file) ?? '';
   if (existing.split(/\r?\n/).includes(entry)) return;
   const prefix = existing.trim() ? `${existing.replace(/\s*$/, '')}\n` : '';
-  writeFile(file, `${prefix}# ${comment}\n${entry}\n`);
+  const header = existing.includes(`# ${comment}`) ? '' : `# ${comment}\n`;
+  writeFile(file, `${prefix}${header}${entry}\n`);
 }
 
 function readManifest(root) {

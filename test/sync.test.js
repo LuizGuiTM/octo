@@ -60,6 +60,10 @@ test('sync installs superpowers untouched plus the Octo layer for both hosts', (
     assert.deepEqual(JSON.parse(read(root, '.vscode/mcp.json')).servers.playwright.args,
       ['@playwright/mcp@latest', '--output-dir', '${workspaceFolder}/.octo/evidence']);
     assert.match(read(root, '.gitignore'), /^\.octo\/evidence\/$/m);
+    const attributes = read(root, '.gitattributes');
+    assert.match(attributes, /^\.claude\/skills\/\*\* text=auto eol=lf$/m);
+    assert.match(attributes, /^\.octo\/\*\* text=auto eol=lf$/m);
+    assert.equal(attributes.match(/^# octo:/gm).length, 1, 'one header for both lines');
     assert.match(claudeMd, /`docs\/superpowers\/dod\/YYYY-MM-DD-<topic>\/DoD\.md` says DONE/);
     assert.match(claudeMd, /Extra DoD criteria for this repo:\n- \(none\)/);
     assert.match(claudeMd, /human-facing documents \(Definition of Done\) in \*\*pt-BR\*\*/);
