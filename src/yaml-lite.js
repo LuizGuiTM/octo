@@ -56,7 +56,8 @@ export function parseYaml(text) {
 }
 
 function scalar(raw) {
-  const v = raw.trim();
+  // Drop a trailing comment after a quoted string or inline list: `"x" # note`.
+  const v = raw.trim().replace(/^(".*"|'.*'|\[.*\])\s+#.*$/, '$1');
   if (v === '') return '';
   if (v.startsWith('"') && v.endsWith('"')) return JSON.parse(v);
   if (v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
@@ -99,6 +100,8 @@ export function stringifyYaml(data, indent = 0) {
   for (const [key, value] of Object.entries(data)) {
     if (value === undefined) continue;
     if (Array.isArray(value)) {
+      const complex = value.find((item) => item !== null && typeof item === 'object');
+      if (complex) throw new Error(`yaml-lite can't serialize "${key}": lists of objects are not supported`);
       out += `${pad}${key}: [${value.map(quoteScalar).join(', ')}]\n`;
     } else if (value !== null && typeof value === 'object') {
       out += `${pad}${key}:\n${stringifyYaml(value, indent + 2)}`;

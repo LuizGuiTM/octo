@@ -21,7 +21,7 @@ Whenever you invoke a superpowers skill, also load the Octo skills that compleme
 1. The native complements listed in the instructions block ("Complements" table).
 2. Catalog complements: run `octo-discovering-skills` for that superpowers skill.
 
-Announce both: `Using writing-plans + octo-parallel-waves, web/node-api to plan the API change.`
+Announce both: `Using writing-plans + octo-parallel-waves, web/node/node-api to plan the API change.`
 
 ## What Octo adds
 | Concern | Octo skill | Complements |

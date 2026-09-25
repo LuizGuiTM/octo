@@ -63,3 +63,9 @@ tests (quote the command and counts); `manual` = needs a human, so name who and 
   summary (never amend just to write the hash).
 - Link the DoD in the final summary and in any PR description.
 - Screenshots must not contain real personal data or secrets. Use test data; blur or retake if needed.
+
+## Files in this skill
+| File | Use |
+|---|---|
+| `dod-template.md` | Starting point for every DoD (pt-BR) |
+| `scripts/check-dod.mjs` | `node .claude/skills/octo-definition-of-done/scripts/check-dod.mjs <DoD.md> --plan <plan.md>`: fails when the evidence doesn't support the status (missing screenshots, FAIL with DONE, open checklist items, plan scenarios missing). Run it before the final commit; a failing check means NOT DONE |

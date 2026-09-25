@@ -3,7 +3,27 @@
 
 export const SESSION_HOOK_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.octo/bin/octo-session.mjs" hook session-start';
 
-const commands = (config, kind) => config.guardrails?.commands?.[kind] ?? [];
+export const OPEN_PR_SCRIPT = 'node .claude/skills/octo-autonomous-finish/scripts/open-pr.mjs';
+export const PR_COMMANDS = ['gh pr create', 'az repos pr create'];
+
+// The autonomy policy adjusts the guardrails so they never contradict it. Raw `git push` is never granted:
+// permission rules match prefixes, so allowing it would also allow `git push origin main --force`.
+// Pushing goes through open-pr.mjs, which only ever runs `git push -u origin <current branch>`.
+export function effectiveCommands(config) {
+  const autonomy = config.autonomy ?? {};
+  const granted = [
+    ...(autonomy.push || autonomy.pullRequest ? [OPEN_PR_SCRIPT] : []),
+    ...(autonomy.pullRequest ? PR_COMMANDS : []),
+  ];
+  const configured = (kind) => config.guardrails?.commands?.[kind] ?? [];
+  return {
+    deny: configured('deny'),
+    ask: configured('ask').filter((c) => !granted.includes(c)),
+    allow: [...new Set([...configured('allow'), ...granted])],
+  };
+}
+
+const commands = (config, kind) => effectiveCommands(config)[kind];
 
 export function claudeCodeSettings(config) {
   const paths = config.guardrails?.protectedPaths ?? [];

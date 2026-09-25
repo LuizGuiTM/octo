@@ -34,11 +34,11 @@ test('DOMAINS matches the domain directories in skills/', () => {
 test('detects domains from project files, always with the concern domains', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'octo-detect-'));
   try {
-    assert.deepEqual(detectDomains(dir), ['architecture', 'security']);
+    assert.deepEqual(detectDomains(dir), ['engineering', 'architecture', 'security']);
     fs.writeFileSync(path.join(dir, 'sfdx-project.json'), '{}');
     fs.writeFileSync(path.join(dir, 'pyproject.toml'), '');
     fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ dependencies: { react: '^19.0.0' } }));
-    assert.deepEqual(detectDomains(dir), ['architecture', 'security', 'web', 'salesforce', 'python']);
+    assert.deepEqual(detectDomains(dir), ['engineering', 'architecture', 'security', 'web', 'salesforce', 'python']);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

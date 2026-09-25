@@ -20,9 +20,13 @@ policy values (commit / push / PR / protected branches / branch prefix) are in t
 4. **Hygiene**: remove debug output, temp files and screenshots outside the DoD folder; check `git status` for files you
    didn't intend; never stage secrets (`.env`, keys, tokens).
 5. **Commit** (when the policy enables it, without asking):
-   - On a protected branch? Create `<branchPrefix><topic>` first. Never commit to a protected branch.
+   - On a protected branch? First create a work branch with the pattern from the instructions block's Git
+     section (e.g. `feature/<topic>-octo`). Never commit to a protected branch.
    - Stage explicit paths, including the DoD folder (document + screenshots). Don't use a blind `git add -A`.
-   - Conventional Commits in the artifact language:
+   - If the diff touches configuration or anything credential-like, apply the catalog skill
+     `security/secrets/secret-scanning` before staging.
+   - Conventional Commits in the artifact language (types and rules in the catalog skill
+     `engineering/git/conventional-commit`, when that domain is enabled):
      ```
      <type>(<scope>): <imperative summary ≤ 72 chars>
 
@@ -36,7 +40,14 @@ policy values (commit / push / PR / protected branches / branch prefix) are in t
    - Subagent-driven work may already have per-task commits: then commit only the remaining changes
      (docs, fixes) and don't squash without asking.
 6. **finishing-a-development-branch**, adjusted by policy:
-   - Push/PR enabled → do it and report the link.
+   - PR enabled → fill `templates/pull-request.md` into a temp file (DoD link, test evidence, autonomous
+     decisions from the session), then
+     `node .claude/skills/octo-autonomous-finish/scripts/open-pr.mjs --title "<commit summary>" --body-file <file> [--draft]`
+     (`--draft` when the policy says draft). It pushes and opens the PR on GitHub (`gh`) or Azure DevOps (`az`),
+     detected from `origin`, and prints the URL. If it exits 1 (CLI missing, not authenticated, unknown host),
+     report its output and the manual commands; the branch stays committed. Don't retry blindly.
+   - Only push enabled → `node .claude/skills/octo-autonomous-finish/scripts/open-pr.mjs --push-only` and report it.
+     Never run `git push` directly: the guardrails only pre-approve the script, which can't force-push.
    - Disabled → present superpowers' options. The work is already committed, so "keep the branch" is the
      safe default. Merging into a protected branch and discarding work always need explicit confirmation.
 7. **Summary** to your partner (response language, ≤ 10 lines): what changed (user-visible first), evidence
@@ -45,3 +56,10 @@ policy values (commit / push / PR / protected branches / branch prefix) are in t
 
 ## When commits are disabled
 Leave everything uncommitted, show `git status --short`, and give the ready-to-use commit message.
+
+## Files in this skill
+| File | Use |
+|---|---|
+| `scripts/pre-commit-check.mjs` | `node .claude/skills/octo-autonomous-finish/scripts/pre-commit-check.mjs`, after staging: blocks protected branches, staged protected paths, secret-looking lines and stray screenshots. Never commit while it fails |
+| `scripts/open-pr.mjs` | Push + open the PR on GitHub or Azure DevOps (`--title`, `--body-file`, `--base`, `--draft`, `--dry-run`) |
+| `templates/pull-request.md` | PR description, when the policy allows opening PRs |

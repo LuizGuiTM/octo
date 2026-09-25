@@ -4,9 +4,11 @@
 //   node .octo/bin/octo-session.mjs status             show the active session(s), current branch first
 //   node .octo/bin/octo-session.mjs new <topic>        create a session file for the current branch
 //   node .octo/bin/octo-session.mjs close <file|slug>  mark a session as done
+//   node .octo/bin/octo-session.mjs prefs              show the filled-in personal preferences
 //   node .octo/bin/octo-session.mjs hook session-start Claude Code SessionStart hook (JSON output)
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -77,6 +79,28 @@ function describe(s, full) {
   return lines.join('\n');
 }
 
+// Personal preferences: ~/.octo/preferences.md (all repos) + .octo/preferences.local.md (this repo, wins).
+// Only filled-in lines are returned; template comments and empty "- Label:" lines are dropped.
+function preferencesText() {
+  const home = process.env.OCTO_HOME ?? path.join(os.homedir(), '.octo');
+  const sources = [
+    [path.join(home, 'preferences.md'), 'global'],
+    [path.join(ROOT, '.octo', 'preferences.local.md'), 'this repository, overrides global'],
+  ];
+  const parts = [];
+  for (const [file, label] of sources) {
+    if (!fs.existsSync(file)) continue;
+    const lines = fs.readFileSync(file, 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .split(/\r?\n/)
+      .filter((l) => l.trim() && !/^#\s/.test(l) && !/^\s*-\s*[^:]+:\s*$/.test(l) && !/^\s*-\s*$/.test(l));
+    // Keep "## Section" headings only when something filled-in follows them.
+    const kept = lines.filter((l, i) => !l.startsWith('##') || (lines[i + 1] && !lines[i + 1].startsWith('##')));
+    if (kept.some((l) => !l.startsWith('##'))) parts.push(`User preferences (${label}):\n${kept.join('\n')}`);
+  }
+  return parts.join('\n\n');
+}
+
 function statusText() {
   const branch = currentBranch();
   const active = sessions().filter((s) => s.meta.status === 'active' || s.meta.status === 'paused');
@@ -107,7 +131,7 @@ function create(topic) {
   const clash = sessions().find((s) => s.meta.status === 'active' && s.meta.branch === branch);
   if (clash) throw new Error(`branch "${branch}" already has an active session: ${clash.rel}. Close it first or switch branches.`);
   fs.mkdirSync(SESSIONS, { recursive: true });
-  const file = path.join(SESSIONS, `${today()}-${slugify(topic)}.md`);
+  const file = path.join(SESSIONS, `${today()}-${slugify(topic) || 'session'}.md`);
   if (fs.existsSync(file)) throw new Error(`session already exists: ${path.relative(ROOT, file)}`);
   const template = fs.readFileSync(TEMPLATE, 'utf8');
   fs.writeFileSync(file, template
@@ -119,8 +143,13 @@ function create(topic) {
 }
 
 function close(ref) {
-  const s = sessions().find((x) => x.rel === ref || x.rel.endsWith(`/${ref}`) || x.rel.endsWith(`/${ref}.md`) || x.rel.includes(ref ?? '\0'));
-  if (!s) throw new Error(`no session matches "${ref}"`);
+  if (!ref) throw new Error('usage: octo-session.mjs close <file|slug>');
+  const all = sessions();
+  const exact = all.filter((x) => x.rel === ref || x.rel.endsWith(`/${ref}`) || x.rel.endsWith(`/${ref}.md`));
+  const matches = exact.length ? exact : all.filter((x) => x.rel.includes(ref));
+  if (!matches.length) throw new Error(`no session matches "${ref}"`);
+  if (matches.length > 1) throw new Error(`"${ref}" matches ${matches.length} sessions: ${matches.map((m) => m.rel).join(', ')}. Be more specific.`);
+  const [s] = matches;
   setMeta(s.file, { status: 'done', updated: now() });
   console.log(`closed ${s.rel}`);
 }
@@ -128,11 +157,13 @@ function close(ref) {
 const [command, arg] = process.argv.slice(2);
 try {
   if (command === 'status' || command === undefined) console.log(statusText());
+  else if (command === 'prefs') console.log(preferencesText() || 'No personal preferences filled in yet (~/.octo/preferences.md, .octo/preferences.local.md).');
   else if (command === 'new') create(process.argv.slice(3).join(' '));
   else if (command === 'close') close(arg);
   else if (command === 'hook' && arg === 'session-start') {
     // Claude Code SessionStart: inject the session state as additional context.
-    console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: statusText() } }));
+    const context = [statusText(), preferencesText()].filter(Boolean).join('\n\n');
+    console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context } }));
   } else {
     throw new Error(`unknown command "${command}"`);
   }

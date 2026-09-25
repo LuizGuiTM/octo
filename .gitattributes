@@ -1,0 +1,8 @@
+# Everything Octo ships is LF: bash scripts (superpowers) break with CRLF, even when packed on Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.tgz binary

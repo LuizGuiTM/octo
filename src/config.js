@@ -5,8 +5,62 @@ export const CONFIG_FILE = 'octo.config.json';
 export const TARGETS = ['claude-code', 'copilot'];
 export const TIERS = ['deep', 'standard', 'fast'];
 // Catalog domains a repo can enable. `core` is always installed natively and is not listed here.
-export const DOMAINS = ['architecture', 'security', 'web', 'salesforce', 'python'];
-export const DEFAULT_DOMAINS = ['architecture', 'security'];
+export const DOMAINS = ['engineering', 'architecture', 'security', 'web', 'salesforce', 'python'];
+export const DEFAULT_DOMAINS = ['engineering', 'architecture', 'security'];
+
+// Autonomy presets. The guardrails follow them: when push/PR are allowed, Octo's open-pr.mjs script and the
+// PR commands stop requiring confirmation; raw `git push` still asks and force push stays denied. See host-settings.js.
+const ASK_ALWAYS = [
+  'an action is destructive or hard to reverse (data loss, force push, migrations on shared data, deleting files you did not create)',
+  'credentials, secrets, licenses or paid resources are needed',
+  'verification keeps failing after two focused attempts',
+];
+export const AUTONOMY_PRESETS = ['supervised', 'balanced', 'full'];
+
+// Branch names for the agent's work. {type} = feature | fix | docs | chore, {topic} = short kebab-case topic.
+// Default keeps "octo" at the end (e.g. feature/status-filter-octo). Octo ≤ 0.1.1 used `branchPrefix`.
+export const DEFAULT_BRANCH_PATTERN = '{type}/{topic}-octo';
+export function branchPattern(autonomy = {}) {
+  if (autonomy.branchPattern) return autonomy.branchPattern;
+  if (autonomy.branchPrefix) return `${autonomy.branchPrefix}{topic}`;
+  return DEFAULT_BRANCH_PATTERN;
+}
+
+export function autonomyPreset(level) {
+  const base = { level, protectedBranches: ['main', 'master', 'develop'], branchPattern: DEFAULT_BRANCH_PATTERN };
+  if (level === 'supervised') {
+    return {
+      ...base, commit: false, push: false, pullRequest: false, draftPullRequest: true,
+      approvals: { spec: true, plan: true },
+      askWhen: [
+        'requirements are ambiguous in any way',
+        'two or more designs are viable',
+        'an action is outward-facing (push, PR, deploy, messages, external APIs with side effects)',
+        ...ASK_ALWAYS,
+      ],
+    };
+  }
+  if (level === 'full') {
+    return {
+      ...base, commit: true, push: true, pullRequest: true, draftPullRequest: true,
+      approvals: { spec: false, plan: false },
+      askWhen: [
+        'requirements are ambiguous and the choice changes user-visible behavior in a way the spec cannot settle',
+        ...ASK_ALWAYS,
+      ],
+    };
+  }
+  return {
+    ...base, commit: true, push: false, pullRequest: false, draftPullRequest: true,
+    approvals: { spec: true, plan: false },
+    askWhen: [
+      'requirements are ambiguous and the choice changes user-visible behavior',
+      'two or more designs are viable and they differ in cost, risk or product impact',
+      'an action is outward-facing (push, PR, deploy, messages, external APIs with side effects)',
+      ...ASK_ALWAYS,
+    ],
+  };
+}
 
 // Model names differ per host: Claude Code takes aliases or full model IDs,
 // Copilot takes the display names shown in its model picker (a list = fallback order).
@@ -41,25 +95,13 @@ export function defaultConfig({ domains = DEFAULT_DOMAINS, targets = TARGETS } =
     parallelism: {
       maxSubagents: 8,
     },
-    autonomy: {
-      commit: true,
-      push: false,
-      pullRequest: false,
-      protectedBranches: ['main', 'master', 'develop'],
-      branchPrefix: 'octo/',
-      askWhen: [
-        'requirements are ambiguous and the choice changes user-visible behavior',
-        'two or more designs are viable and they differ in cost, risk or product impact',
-        'an action is destructive or hard to reverse (data loss, force push, migrations on shared data, deleting files you did not create)',
-        'an action is outward-facing (push, PR, deploy, messages, external APIs with side effects)',
-        'credentials, secrets, licenses or paid resources are needed',
-        'verification keeps failing after two focused attempts',
-      ],
-    },
+    autonomy: autonomyPreset('balanced'),
     webTesting: {
       enabled: domains.includes('web') || domains.includes('salesforce'),
-      baseUrl: 'http://localhost:3000',
-      startCommand: 'npm run dev',
+      // Salesforce-only repos test in an org (scratch/sandbox), not on a local dev server.
+      ...(domains.includes('salesforce') && !domains.includes('web')
+        ? { baseUrl: 'org URL from `sf org open --url-only --target-org <sandbox alias>`', startCommand: 'sf project deploy start --target-org <sandbox alias>' }
+        : { baseUrl: 'http://localhost:3000', startCommand: 'npm run dev' }),
       tools: {
         'claude-code': 'claude-in-chrome',
         copilot: 'playwright',
@@ -76,7 +118,7 @@ export function defaultConfig({ domains = DEFAULT_DOMAINS, targets = TARGETS } =
     guardrails: {
       commands: {
         deny: ['git push --force', 'git push -f', 'git reset --hard', 'git clean -fdx'],
-        ask: ['git push', 'rm -rf', 'npm publish', 'sf project deploy start', 'terraform apply', 'kubectl delete'],
+        ask: ['git push', 'rm -rf', 'Remove-Item -Recurse', 'rmdir /s', 'rd /s', 'del /s', 'npm publish', 'sf project deploy start', 'terraform apply', 'kubectl delete'],
         allow: ['git status', 'git diff', 'git log'],
       },
       protectedPaths: ['**/.env', '**/.env.*', '**/*.pem', '**/*.key', '**/secrets/**'],
@@ -85,6 +127,11 @@ export function defaultConfig({ domains = DEFAULT_DOMAINS, targets = TARGETS } =
     mcp: {
       enable: [],
       servers: {},
+    },
+    imports: {
+      // awesome-copilot instructions to also install natively for Copilot (.github/instructions/),
+      // where they apply automatically by file glob. Off by default: several are large and apply to "**".
+      nativeInstructions: [],
     },
     skills: {
       promoted: [],
@@ -156,12 +203,27 @@ export function validateConfig(config) {
     const blocked = [...(guardrails.commands?.deny ?? []), ...(guardrails.commands?.ask ?? [])].find((c) => c.startsWith(cmd) || cmd.startsWith(c));
     if (blocked) errors.push(`guardrails.commands.allow "${cmd}" overlaps with deny/ask "${blocked}"`);
   }
+  const pattern = config.autonomy?.branchPattern;
+  if (pattern !== undefined && (typeof pattern !== 'string' || !pattern.includes('{topic}'))) {
+    errors.push('autonomy.branchPattern must be a string containing {topic} (e.g. "{type}/{topic}-octo")');
+  }
   const rounds = guardrails.maxFixRounds;
   if (rounds !== undefined && (!Number.isInteger(rounds) || rounds < 1)) errors.push('guardrails.maxFixRounds must be a positive integer');
+  // Secrets must come from the environment: a secret-looking value may only contain {env:NAME} placeholders
+  // (plus a scheme like "Bearer "), never a literal. Checked in env, headers, args and url.
+  const SECRET_NAME = /(token|secret|password|passwd|api[_-]?key|access[_-]?key|auth)/i;
+  const onlyPlaceholders = (value) => /\{env:[A-Za-z_]\w*\}/.test(value)
+    && value.replace(/\{env:[A-Za-z_]\w*\}/g, '').replace(/^(Bearer|Basic|token)\s*/i, '').trim() === '';
   for (const [name, def] of Object.entries(config.mcp?.servers ?? {})) {
     for (const [key, value] of Object.entries({ ...def.env, ...def.headers })) {
-      if (/(token|secret|password|key)/i.test(key) && typeof value === 'string' && !/\{env:[A-Za-z_]\w*\}/.test(value)) {
+      if (SECRET_NAME.test(key) && typeof value === 'string' && !onlyPlaceholders(value)) {
         errors.push(`mcp.servers.${name}: "${key}" looks like a secret; use "{env:NAME}" instead of a literal value`);
+      }
+    }
+    for (const value of [...(def.args ?? []), def.url ?? '']) {
+      const m = String(value).match(/(?:--?|[?&])([\w-]*(?:token|secret|password|api[_-]?key|key))[=:](\S+)/i);
+      if (m && !onlyPlaceholders(m[2].replace(/&.*$/, ''))) {
+        errors.push(`mcp.servers.${name}: "${m[1]}" in args/url looks like a literal secret; use "{env:NAME}"`);
       }
     }
   }

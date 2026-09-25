@@ -1,0 +1,44 @@
+{
+  "$comment": "Curated imports from github/awesome-copilot (MIT). Files are vendored untouched under upstream/awesome-copilot/; this map only adds each item's Octo domain, technology and the superpowers skills it complements. Update with: npm run upstream:update -- --source awesome-copilot",
+  "skills": {
+    "acquire-codebase-knowledge": { "domain": "engineering", "tech": "docs", "complements": ["brainstorming"] },
+    "create-agentsmd": { "domain": "engineering", "tech": "docs", "complements": ["brainstorming"] },
+    "conventional-commit": { "domain": "engineering", "tech": "git", "complements": ["finishing-a-development-branch"] },
+    "doublecheck": { "domain": "engineering", "tech": "quality", "complements": ["verification-before-completion"] },
+    "test-gap-audit": { "domain": "engineering", "tech": "testing", "complements": ["requesting-code-review", "verification-before-completion"] },
+    "refactor": { "domain": "engineering", "tech": "quality", "complements": ["requesting-code-review"] },
+
+    "security-review": { "domain": "security", "tech": "appsec", "complements": ["brainstorming", "requesting-code-review", "receiving-code-review"] },
+    "secret-scanning": { "domain": "security", "tech": "secrets", "complements": ["requesting-code-review", "finishing-a-development-branch"] },
+    "threat-model-analyst": { "domain": "security", "tech": "threat-modeling", "complements": ["brainstorming"] },
+
+    "api-breaking-change-detector": { "domain": "architecture", "tech": "api", "complements": ["writing-plans", "requesting-code-review"] },
+    "create-architectural-decision-record": { "domain": "architecture", "tech": "adr", "complements": ["brainstorming", "finishing-a-development-branch"] },
+    "sql-code-review": { "domain": "architecture", "tech": "database", "complements": ["requesting-code-review"] },
+    "postgresql-code-review": { "domain": "architecture", "tech": "database", "complements": ["requesting-code-review"] },
+
+    "react19-source-patterns": { "domain": "web", "tech": "react", "complements": ["writing-plans", "test-driven-development", "requesting-code-review"] },
+    "react19-test-patterns": { "domain": "web", "tech": "react", "complements": ["test-driven-development"] },
+    "react-audit-grep-patterns": { "domain": "web", "tech": "react", "complements": ["requesting-code-review"] },
+    "javascript-typescript-jest": { "domain": "web", "tech": "jest", "complements": ["test-driven-development"] },
+    "web-design-reviewer": { "domain": "web", "tech": "ui-design", "complements": ["requesting-code-review", "verification-before-completion"] },
+    "webapp-testing": { "domain": "web", "tech": "playwright", "complements": ["verification-before-completion"] },
+
+    "salesforce-apex-quality": { "domain": "salesforce", "tech": "apex", "complements": ["writing-plans", "test-driven-development", "requesting-code-review"] },
+    "salesforce-component-standards": { "domain": "salesforce", "tech": "lwc", "complements": ["writing-plans", "requesting-code-review"] },
+    "salesforce-flow-design": { "domain": "salesforce", "tech": "flow", "complements": ["brainstorming", "writing-plans"] },
+
+    "pytest-coverage": { "domain": "python", "tech": "pytest", "complements": ["test-driven-development", "verification-before-completion"] }
+  },
+  "instructions": {
+    "security-and-owasp.instructions.md": { "domain": "security", "tech": "appsec" },
+    "a11y.instructions.md": { "domain": "web", "tech": "accessibility" },
+    "nextjs.instructions.md": { "domain": "web", "tech": "nextjs" },
+    "nextjs-tailwind.instructions.md": { "domain": "web", "tech": "nextjs" },
+    "nodejs-javascript-vitest.instructions.md": { "domain": "web", "tech": "node" },
+    "playwright-typescript.instructions.md": { "domain": "web", "tech": "playwright" },
+    "apex.instructions.md": { "domain": "salesforce", "tech": "apex" },
+    "lwc.instructions.md": { "domain": "salesforce", "tech": "lwc" },
+    "playwright-python.instructions.md": { "domain": "python", "tech": "playwright" }
+  }
+}

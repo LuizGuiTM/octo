@@ -6,7 +6,7 @@
 | Data | AAAA-MM-DD |
 | Spec | [docs/superpowers/specs/<arquivo>.md](../../specs/<arquivo>.md) |
 | Plano | [docs/superpowers/plans/<arquivo>.md](../../plans/<arquivo>.md) |
-| Branch | `octo/<tópico>` (este documento vai no commit final) |
+| Branch | `feature/<tópico>-octo` (este documento vai no commit final) |
 | Ambiente | <URL testada, ex.: http://localhost:3000> · <ferramenta: Claude in Chrome / Playwright MCP> |
 
 ## Cenários

@@ -2,6 +2,12 @@
 name: worker-deep
 description: "General subagent on the deep (most capable) tier. Use when a superpowers skill asks for the most capable model: architecture and design tasks, final code review, fix-loop escalations, hard debugging."
 tier: deep
+argument-hint: "<task brief, review package or debugging hypothesis>"
+claude-code:
+  color: purple
+  maxTurns: 100
+copilot:
+  agents: []
 ---
 
 You are an Octo worker running on the **deep** model tier, the most capable model the company

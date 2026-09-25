@@ -22,7 +22,7 @@
     "domains": {
       "description": "Octo domain skill catalogs to install (discovered on demand). The 'core' domain is always installed.",
       "type": "array",
-      "items": { "enum": ["architecture", "security", "web", "salesforce", "python"] }
+      "items": { "enum": ["engineering", "architecture", "security", "web", "salesforce", "python"] }
     },
     "upstream": {
       "type": "object",
@@ -47,11 +47,21 @@
     "autonomy": {
       "type": "object",
       "properties": {
+        "level": { "description": "Preset this block came from (octo autonomy supervised|balanced|full). Informational.", "enum": ["supervised", "balanced", "full", "custom"] },
+        "approvals": {
+          "type": "object",
+          "properties": {
+            "spec": { "description": "Wait for the user's approval of the spec (brainstorming).", "type": "boolean" },
+            "plan": { "description": "Wait for the user's review of the plan before executing.", "type": "boolean" }
+          }
+        },
         "commit": { "description": "Commit automatically after verification, on a feature branch.", "type": "boolean" },
-        "push": { "type": "boolean" },
-        "pullRequest": { "type": "boolean" },
+        "push": { "description": "Push the feature branch without asking. Force push stays denied.", "type": "boolean" },
+        "pullRequest": { "description": "Open the pull request without asking (GitHub via gh, Azure DevOps via az), detected from origin.", "type": "boolean" },
+        "draftPullRequest": { "description": "Open pull requests as drafts.", "type": "boolean" },
         "protectedBranches": { "type": "array", "items": { "type": "string" } },
-        "branchPrefix": { "type": "string" },
+        "branchPattern": { "description": "Work branch names. {type} = feature | fix | docs | chore, {topic} = short kebab-case topic. Default: {type}/{topic}-octo", "type": "string", "pattern": "\\{topic\\}" },
+        "branchPrefix": { "description": "Deprecated (Octo ≤ 0.1.1): same as branchPattern \"<prefix>{topic}\".", "type": "string" },
         "askWhen": { "description": "Situations in which the agent must stop and ask the user.", "type": "array", "items": { "type": "string" } }
       }
     },
@@ -76,6 +86,16 @@
       "properties": {
         "dir": { "description": "Where DoD folders are created.", "type": "string" },
         "extraCriteria": { "description": "Repo-specific criteria added to the DoD checklist.", "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "imports": {
+      "type": "object",
+      "properties": {
+        "nativeInstructions": {
+          "description": "awesome-copilot instructions (file names, e.g. apex.instructions.md) to also install in .github/instructions/ for Copilot. They apply automatically by glob, so mind their size.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "sessions": {

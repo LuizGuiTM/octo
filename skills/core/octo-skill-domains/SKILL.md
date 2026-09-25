@@ -13,7 +13,7 @@ where Octo skills go and how they hook into superpowers.
 ## Rules
 - **Never edit `upstream/superpowers/`.** It's a pinned, untouched copy (`npm run upstream:update`).
   To change behavior, write a complementing Octo skill or a policy in the instructions template.
-- Skills live in the **Octo framework repo** under `skills/<domain>/<skill>/SKILL.md`. Product repos
+- Skills live in the **Octo framework repo** under `skills/<domain>/<technology>/<skill>/SKILL.md` (core skills: `skills/core/<skill>/`). Product repos
   get generated copies that `octo sync` overwrites.
 
 ## Domains

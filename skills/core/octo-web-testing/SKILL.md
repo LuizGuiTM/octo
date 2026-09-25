@@ -20,14 +20,21 @@ Check which tools you have, in this order:
 
 The instructions block names the configured tool and the app URL/start command.
 If no browser tool is available: tell the user how to enable it (commands above), and meanwhile fall
-back to the project's own e2e runner (`npx playwright test`, Cypress, and so on) if one exists. Never claim
-UI verification you didn't perform.
+back to the project's own e2e runner (`npx playwright test`, Cypress, and so on) if one exists, or to the
+catalog skill `web/playwright/webapp-testing` (a Playwright script helper that also captures screenshots).
+Never claim UI verification you didn't perform.
+
+For UI changes, also check the catalog: `web/ui-design/web-design-reviewer` for visual review and
+`web/accessibility/a11y.instructions.md` for accessibility criteria worth turning into scenarios.
 
 ## 2. Prepare
-1. Start the app with the configured start command **in the background** and wait until the URL
-   responds (poll with curl or the equivalent; don't sleep blindly). Reuse it if it's already running.
-2. For Salesforce: deploy to a scratch/sandbox org first (`sf project deploy start`) and open it with
-   `sf org open --url-only`. Never test in production orgs.
+1. Start the app with the configured start command **in the background**, then wait for it:
+   `node .claude/skills/octo-web-testing/scripts/wait-for-url.mjs <url> --timeout 60` (works the same on
+   Windows, where `curl` may be a PowerShell alias). Reuse the app if it's already running.
+2. For Salesforce: deploy to a scratch org or sandbox first (`sf project deploy start`: it's on the guardrails'
+   "ask" list, so expect one confirmation per run) and get the URL with `sf org open --url-only`. That URL
+   contains a session token: pass it straight to the browser tool, never echo it in your answer, the session
+   file, the DoD or a commit. Never test in production orgs.
 3. Seed test data through the app's own seed scripts/APIs, never by hand in shared environments.
 
 ## 3. Scenarios
@@ -85,3 +92,10 @@ Then:
 - Don't trigger native `alert`/`confirm`/`prompt` dialogs unless needed; they block automation.
 - Never type real credentials or personal data; ask the user for test accounts.
 - Only interact with the app under test; don't navigate elsewhere with the user's logged-in browser.
+
+## Files in this skill
+| File | Use |
+|---|---|
+| `references/playwright-mcp.md` | Tool table, argument names and pitfalls for Playwright MCP (Copilot) |
+| `references/claude-in-chrome.md` | Tool table and pitfalls for Claude in Chrome (Claude Code) |
+| `scripts/wait-for-url.mjs` | `node .claude/skills/octo-web-testing/scripts/wait-for-url.mjs <url> --timeout 60`: wait for the app instead of sleeping |

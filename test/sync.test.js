@@ -39,11 +39,17 @@ test('sync installs superpowers untouched plus the Octo layer for both hosts', (
     assert.ok(exists(root, '.claude/skills/subagent-driven-development/scripts/task-brief'));
     assert.ok(exists(root, '.octo/licenses/superpowers-LICENSE'));
     assert.ok(exists(root, '.claude/skills/octo-parallel-waves/SKILL.md'));
-    assert.ok(exists(root, '.octo/catalog/web/react-components/SKILL.md'));
+    assert.ok(exists(root, '.octo/catalog/web/react/react19-source-patterns/SKILL.md'), 'imported skill under domain/tech');
+    assert.ok(exists(root, '.octo/catalog/web/node/node-api/SKILL.md'), 'own skill under domain/tech');
+    assert.ok(exists(root, '.octo/catalog/web/accessibility/a11y.instructions.md'), 'instructions under domain/tech');
+    assert.ok(exists(root, '.octo/licenses/awesome-copilot-LICENSE'));
+    assert.ok(!exists(root, '.github/instructions'), 'instructions are not native unless opted in');
     assert.ok(!exists(root, '.octo/catalog/salesforce'), 'disabled domains are not installed');
 
     const index = read(root, '.octo/catalog/INDEX.md');
-    assert.match(index, /\| `test-driven-development` \|.*web\/react-components/);
+    assert.match(index, /\| `test-driven-development` \|.*web\/react\/react19-test-patterns/);
+    assert.match(index, /#### web \/ react/);
+    assert.match(index, /\| instructions \(`\*\*\/\*\.tsx/);
 
     const claudeAgent = parseFrontmatter(read(root, '.claude/agents/octo-worker-deep.md')).data;
     assert.equal(claudeAgent.model, 'opus');
@@ -106,14 +112,19 @@ test('promoted domain skills become native', () => {
   const root = tempRepo();
   try {
     const config = defaultConfig({ domains: ['salesforce'] });
-    config.skills.promoted = ['apex-development'];
+    config.skills.promoted = ['salesforce-apex-quality'];
+    config.imports.nativeInstructions = ['apex.instructions.md'];
     sync(root, config);
-    assert.ok(exists(root, '.claude/skills/apex-development/SKILL.md'));
+    assert.ok(exists(root, '.claude/skills/salesforce-apex-quality/SKILL.md'));
     assert.match(read(root, '.octo/catalog/INDEX.md'), /native \(promoted\)/);
-    assert.match(read(root, 'CLAUDE.md'), /\| `test-driven-development` \| .*`apex-development`/);
+    assert.match(read(root, 'CLAUDE.md'), /\| `test-driven-development` \| .*`salesforce-apex-quality`/);
+    assert.ok(exists(root, '.github/instructions/apex.instructions.md'), 'opted-in instructions installed for Copilot');
 
-    config.skills.promoted = ['react-components'];
+    config.skills.promoted = ['react19-test-patterns'];
     assert.throws(() => sync(root, config), /not in the enabled domains/);
+    config.skills.promoted = [];
+    config.imports.nativeInstructions = ['a11y.instructions.md'];
+    assert.throws(() => sync(root, config), /nativeInstructions lists instructions not in the enabled domains/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

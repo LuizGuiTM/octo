@@ -1,6 +1,6 @@
 {
   "name": "@luizguitm/octo",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Octo: a layer on top of superpowers for Claude Code and GitHub Copilot: AI docs first, domain skills, parallel waves, model tiers, Definition of Done with screenshots, session continuity, guardrails and custom MCPs.",
   "keywords": [
     "claude-code",
@@ -32,7 +32,12 @@
     "upstream/superpowers.lock.json",
     "upstream/superpowers/LICENSE",
     "upstream/superpowers/skills",
+    "upstream/awesome-copilot.imports.json",
+    "upstream/awesome-copilot.lock.json",
+    "upstream/awesome-copilot",
     "runtime",
+    "commands",
+    "docs",
     "mcp",
     "bin",
     "src",

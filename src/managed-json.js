@@ -16,8 +16,16 @@ export function readJson(file) {
   }
 }
 
-function writeJson(file, json) {
-  writeFile(file, `${JSON.stringify(json, null, 2)}\n`);
+// Writes only when the content actually changed, keeping the file's indentation and line endings.
+// A file that doesn't exist is only created when there's something to put in it.
+function save(file, json) {
+  const raw = readIfExists(file);
+  if (raw === null && isEmpty(json)) return;
+  if (raw !== null && raw.trim() !== '' && JSON.stringify(JSON.parse(raw)) === JSON.stringify(json)) return;
+  const indentMatch = raw?.match(/^[ \t]+(?=")/m);
+  const indent = indentMatch ? (indentMatch[0].includes('\t') ? '\t' : indentMatch[0].length) : 2;
+  const eol = raw?.includes('\r\n') ? '\r\n' : '\n';
+  writeFile(file, `${JSON.stringify(json, null, indent)}\n`.replace(/\n/g, eol));
 }
 
 const isEmpty = (value) => value && typeof value === 'object' && Object.keys(value).length === 0;
@@ -40,7 +48,7 @@ export function syncMapEntries(root, rel, key, entries, previouslyOwned = [], co
   }
   if (isEmpty(map)) delete json[key];
   else json[key] = map;
-  if (!isEmpty(json) || readIfExists(file) !== null) writeJson(file, json);
+  save(file, json);
   return owned;
 }
 
@@ -56,7 +64,7 @@ export function syncListEntries(root, rel, keyPath, values, previouslyOwned = []
   parent[last] = [...kept, ...owned];
   if (parent[last].length === 0) delete parent[last];
   pruneEmpty(json, keyPath.slice(0, -1));
-  if (!isEmpty(json) || readIfExists(file) !== null) writeJson(file, json);
+  save(file, json);
   return owned;
 }
 
@@ -77,7 +85,7 @@ export function syncHooks(root, rel, groups, previouslyOwned = []) {
   }
   if (isEmpty(hooks)) delete json.hooks;
   else json.hooks = hooks;
-  if (!isEmpty(json) || readIfExists(file) !== null) writeJson(file, json);
+  save(file, json);
   return owned;
 }
 

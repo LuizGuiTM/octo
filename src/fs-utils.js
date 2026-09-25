@@ -14,20 +14,22 @@ export function readIfExists(file) {
 }
 
 // Inserts or replaces the octo block in a file the user also edits (CLAUDE.md, copilot-instructions.md).
+// Keeps the file's line endings (CRLF files stay CRLF) and only writes when something changed.
 export function upsertManagedBlock(file, content) {
-  const block = `${BLOCK_BEGIN}\n${content.trim()}\n${BLOCK_END}`;
   const existing = readIfExists(file);
+  const eol = existing?.includes('\r\n') ? '\r\n' : '\n';
+  const block = `${BLOCK_BEGIN}\n${content.trim()}\n${BLOCK_END}`.replace(/\r?\n/g, eol);
+  let next;
   if (existing === null) {
-    writeFile(file, `${block}\n`);
-    return;
-  }
-  const start = existing.indexOf(BLOCK_BEGIN);
-  const end = existing.indexOf(BLOCK_END);
-  if (start !== -1 && end > start) {
-    writeFile(file, existing.slice(0, start) + block + existing.slice(end + BLOCK_END.length));
+    next = `${block}${eol}`;
   } else {
-    writeFile(file, `${existing.replace(/\s*$/, '')}\n\n${block}\n`);
+    const start = existing.indexOf(BLOCK_BEGIN);
+    const end = existing.indexOf(BLOCK_END);
+    next = start !== -1 && end > start
+      ? existing.slice(0, start) + block + existing.slice(end + BLOCK_END.length)
+      : `${existing.replace(/\s*$/, '')}${eol}${eol}${block}${eol}`;
   }
+  if (next !== existing) writeFile(file, next);
 }
 
 export function removeManagedBlock(file) {
@@ -36,7 +38,9 @@ export function removeManagedBlock(file) {
   const start = existing.indexOf(BLOCK_BEGIN);
   const end = existing.indexOf(BLOCK_END);
   if (start === -1 || end < start) return;
-  writeFile(file, (existing.slice(0, start) + existing.slice(end + BLOCK_END.length)).replace(/\n{3,}/g, '\n\n'));
+  const eol = existing.includes('\r\n') ? '\r\n' : '\n';
+  const rest = existing.slice(0, start) + existing.slice(end + BLOCK_END.length);
+  writeFile(file, rest.replace(/(\r?\n){3,}/g, eol + eol));
 }
 
 export function listFiles(dir) {

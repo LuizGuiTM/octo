@@ -20,6 +20,11 @@ after reading `AGENTS.md` plus one linked doc. Treat them as production code: ac
 verify the commands, and fill `AGENTS.md` directly; add `docs/ai/` pages only when there's more to say
 than fits in `AGENTS.md`.
 
+Catalog helpers (domain `engineering`, when enabled): `engineering/docs/acquire-codebase-knowledge` gives a
+structured survey method with templates, and `engineering/docs/create-agentsmd` lists what a good AGENTS.md
+covers. Use them for method and completeness, but keep Octo's structure and size limits below. For ADRs, use
+`architecture/adr/create-architectural-decision-record`.
+
 1. Survey the repo yourself for two minutes: root files, package manifests, CI config, top-level dirs.
 2. Dispatch in **one turn**, one `octo-explorer` per area:
    - Commands: install, dev, test (all and single), lint, build. Source: scripts, Makefile, CI.
