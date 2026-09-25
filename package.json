@@ -1,0 +1,45 @@
+{
+  "name": "@luizguitm/octo",
+  "version": "0.1.0",
+  "description": "Octo: a layer on top of superpowers for Claude Code and GitHub Copilot: AI docs first, domain skills, parallel waves, model tiers, Definition of Done with screenshots, session continuity, guardrails and custom MCPs.",
+  "keywords": [
+    "claude-code",
+    "github-copilot",
+    "superpowers",
+    "agent-skills",
+    "ai-agents",
+    "subagents",
+    "mcp"
+  ],
+  "author": "LuizGuiTM",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "octo": "bin/octo.js"
+  },
+  "files": [
+    "agents",
+    "skills",
+    "templates",
+    "upstream/superpowers.lock.json",
+    "upstream/superpowers/LICENSE",
+    "upstream/superpowers/skills",
+    "runtime",
+    "mcp",
+    "bin",
+    "src",
+    "schema"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "octo": "node bin/octo.js",
+    "upstream:update": "node scripts/update-upstream.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

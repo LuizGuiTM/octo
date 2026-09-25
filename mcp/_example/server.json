@@ -1,0 +1,7 @@
+{
+  "description": "Code knowledge graph of this repository (modules, symbols, dependencies)",
+  "usage": "Query before exploring unfamiliar code or estimating the impact of a change",
+  "command": "code-graph-mcp",
+  "args": ["--root", "{workspace}"],
+  "env": { "CODE_GRAPH_TOKEN": "{env:CODE_GRAPH_TOKEN}" }
+}
