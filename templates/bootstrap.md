@@ -19,7 +19,7 @@ Only a background agent with no chat (e.g. the Copilot cloud agent working on an
 the defaults.
 
 ## Language
-- Talk to the user in **{{responseLanguage}}**.
+- Talk to the user in **{{responseLanguage}}**, unless their preferences ("Idioma") set another language: then use theirs.
 - Write specs, plans, AI docs, code comments and commit messages in **{{artifactLanguage}}**.
 - Write human-facing documents (Definition of Done) in **{{documentLanguage}}**.
 
@@ -29,8 +29,8 @@ Before the first change of a session (`/octo-start`, `/octo-fix`, or any request
    `npx -y @luizguitm/octo@latest sync`, commit only the files it changed (`chore: update Octo to <version>`)
    on the work branch, and re-read this file (the block may have changed).
 2. **Preferences reviewed** (see "First message of a session"): they must be, before any change.
-3. **Models:** only the models in "Models" below. Before dispatching a subagent, say which agent and model it
-   uses. If a model isn't available on this host, **stop and ask** which allowed one to use; never let the host
+3. **Models:** only the models in "Models" below. When you dispatch subagents, one short line per batch says
+   which agents and models (e.g. "3 × octo-explorer (haiku)"); no more. If a model isn't available on this host, **stop and ask** which allowed one to use; never let the host
    fall back to another model silently.
 Record "startup checks: done" in the session so they don't run again in the same session.
 

@@ -143,7 +143,17 @@ test('Copilot agents only pin models once confirmed; /octo is the plain-language
     assert.match(read(root, '.github/copilot-instructions.md'), /agents are \*\*not pinned\*\*/);
     config.models.copilot.pin = true;
     sync(root, config);
-    assert.match(read(root, '.github/agents/octo-worker-deep.agent.md'), /^model: Claude Opus 4\.5$/m);
+    // Copilot needs the qualified name "Model (vendor)"; written with or without the suffix in the config.
+    assert.match(read(root, '.github/agents/octo-worker-deep.agent.md'), /^model: Claude Opus 4\.5 \(copilot\)$/m);
+    config.models.copilot.allowed.push('GPT-6 Luna (copilot)');
+    config.models.copilot.tiers.fast = 'GPT-6 Luna';
+    sync(root, config);
+    assert.match(read(root, '.github/agents/octo-worker-fast.agent.md'), /^model: GPT-6 Luna \(copilot\)$/m);
+    // Explicit runSubagent models win over the agent file: the instructions make the tier model explicit.
+    const instructions = read(root, '.github/copilot-instructions.md');
+    assert.match(instructions, /`fast`: `GPT-6 Luna \(copilot\)`/);
+    assert.match(instructions, /naming the Octo agent/);
+    assert.match(instructions, /as the `model` parameter/);
     assert.ok(fs.existsSync(path.join(root, '.claude/skills/octo/SKILL.md')));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

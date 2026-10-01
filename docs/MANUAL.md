@@ -354,6 +354,18 @@ Um modelo fora de `allowed` faz o `sync` falhar.
 **Copilot:** enquanto você não confirma os nomes dos modelos em `/octo-prefs` (`models.copilot.pin: true`), os
 subagentes usam **o modelo escolhido no seletor do chat**. Por isso a escolha do seletor importa.
 
+**Nomes dos modelos no Copilot:** os agentes precisam do nome qualificado, `Nome (copilot)`, por exemplo
+`Claude Sonnet 4.5 (copilot)`. Sem o sufixo, o Copilot não reconhece o modelo e usa o do seletor sem avisar.
+No `octo.config.json`, escreva o nome **exatamente** como aparece no seletor (maiúsculas, espaços e hífens:
+`GPT-5.2`, não `gpt 5.2`); o Octo acrescenta ` (copilot)` sozinho. O modelo de cada nível no Copilot é do
+**time** (`models.copilot`): colocar só nas suas preferências não muda os agentes.
+
+Os níveis valem para os **subagentes**. A conversa principal sempre roda no modelo do seletor. No VS Code, o
+modelo de um subagente segue esta ordem: o `model` passado explicitamente pelo agente principal, depois o do
+arquivo do agente, depois o da conversa. Por isso as instruções mandam o agente principal chamar sempre o
+agente Octo pelo nome (`octo-worker-fast`…) e passar o modelo do nível explicitamente. Para conferir, abra
+a chamada do subagente no chat: ela mostra o modelo usado.
+
 ### Qual modelo escolher no chat
 
 | Comando / momento | Nível | Claude Code | Copilot (seletor) | Por quê |

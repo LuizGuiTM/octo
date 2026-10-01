@@ -1,4 +1,4 @@
-import { asList, branchPattern } from './config.js';
+import { asList, branchPattern, copilotModelName } from './config.js';
 import { stringifyFrontmatter } from './yaml-lite.js';
 
 // Reasoning effort per tier on Claude Code (agents may override with `claude-code: effort:`).
@@ -43,7 +43,7 @@ export const adapters = {
     agentFile(agent, config, body) {
       // Copilot silently falls back to another model when a pinned name doesn't exist in the org, so models are
       // only pinned once someone confirmed the real names (models.copilot.pin = true, set by /octo-prefs).
-      const models = asList(config.models.copilot.tiers[agent.tier]);
+      const models = asList(config.models.copilot.tiers[agent.tier]).map(copilotModelName);
       const frontmatter = {
         name: `octo-${agent.name}`,
         description: agent.description,
@@ -65,9 +65,14 @@ export const adapters = {
 export function templateVars(config, target, extra = {}) {
   const adapter = adapters[target];
   const models = config.models[target];
+  const name = (m) => (target === 'copilot' ? copilotModelName(m) : m);
   const tiers = Object.entries(models.tiers)
-    .map(([tier, value]) => `- \`${tier}\`: ${asList(value).map((m) => `\`${m}\``).join(' → ')}`)
+    .map(([tier, value]) => `- \`${tier}\`: ${asList(value).map((m) => `\`${name(m)}\``).join(' → ')}`)
     .join('\n');
+  // VS Code subagent model order: explicit `model` in runSubagent > the agent's `model` > Auto > the chat's model.
+  // So a generic subagent, or the chat model passed explicitly, silently ignores the tier.
+  const copilotDispatch = 'Dispatch every subagent through `runSubagent` **naming the Octo agent** (`octo-worker-fast`, '
+    + '`octo-worker-standard`, `octo-worker-deep`, `octo-explorer`, …), never as a generic subagent';
   const autonomy = config.autonomy ?? {};
   const webTool = config.webTesting?.tools?.[target] ?? 'playwright';
   return {
@@ -75,10 +80,12 @@ export function templateVars(config, target, extra = {}) {
     responseLanguage: config.language?.responses ?? 'en',
     artifactLanguage: config.language?.artifacts ?? 'en',
     documentLanguage: config.language?.documents ?? config.language?.responses ?? 'en',
-    allowedModels: models.allowed.map((m) => `\`${m}\``).join(', '),
-    modelTiers: target === 'copilot' && !models.pin
-      ? `${tiers}\nThese names are **not confirmed** for this organization, so agents are **not pinned**: every subagent runs on the model the user picked in the chat. Don't choose other models yourself. When the user confirms the real names (\`/octo-prefs\`), set \`models.copilot.pin: true\` and run \`npx -y @luizguitm/octo@latest sync\`.`
-      : tiers,
+    allowedModels: models.allowed.map((m) => `\`${name(m)}\``).join(', '),
+    modelTiers: target !== 'copilot'
+      ? tiers
+      : models.pin
+        ? `${tiers}\n${copilotDispatch}, and pass its tier's model **explicitly** as the \`model\` parameter, with the exact name above (including \`(copilot)\`): an explicit model wins over the agent file, so never pass the chat's own model. The main conversation itself runs on the model the user picked; tiers apply to subagents.`
+        : `${tiers}\nThese names are **not confirmed** for this organization, so agents are **not pinned**: every subagent runs on the model the user picked in the chat. ${copilotDispatch}, and don't pass a \`model\` parameter. When the user confirms the real names (\`/octo-prefs\`), set \`models.copilot.pin: true\` and run \`npx -y @luizguitm/octo@latest sync\`.`,
     maxSubagents: String(config.parallelism?.maxSubagents ?? 8),
     branchPolicy: `Work branches are named \`${branchPattern(autonomy)}\` ({type} = feature | fix | docs | chore; {topic} = short kebab-case topic), e.g. \`${branchPattern(autonomy).replace('{type}', 'feature').replace('{topic}', 'status-filter')}\` or \`${branchPattern(autonomy).replace('{type}', 'fix').replace('{topic}', 'discount-error')}\`. Never work directly on: ${(autonomy.protectedBranches ?? []).map((b) => `\`${b}\``).join(', ')}.`,
     commitPolicy: autonomy.commit

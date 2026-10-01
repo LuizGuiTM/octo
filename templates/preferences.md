@@ -11,10 +11,14 @@ As regras do time (octo.config.json) e os guardrails sempre prevalecem. Para aju
 ## Modelos (só os permitidos pelo time)
 - Claude Code: deep = {{claudeDeep}} · standard = {{claudeStandard}} · fast = {{claudeFast}}
 - Copilot: deep = {{copilotDeep}} · standard = {{copilotStandard}} · fast = {{copilotFast}}
+  (no Copilot, o modelo de cada nível é do time: mude em `octo.config.json` com o /octo-prefs, usando o nome
+  exato do seletor; o Octo acrescenta "(copilot)" sozinho)
 - Nível deep: só para desenho, revisão final e debugging difícil
 
 ## Comunicação
 - Idioma: {{responseLanguage}}
+  (só o chat. O idioma de specs, planos, código, commits e DoD é do time de cada repositório, em `language`
+  no `octo.config.json`; o /octo-prefs mostra qual é)
 - Respostas: curtas e diretas
 - Linguagem: técnica (troque para "simples, sem jargão" se você não é dev)
 - Atualizações em tarefas longas: a cada fase

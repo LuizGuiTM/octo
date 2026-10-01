@@ -190,7 +190,9 @@ export function validateConfig(config) {
       const chosen = asList(models.tiers?.[tier]);
       if (chosen.length === 0) errors.push(`models.${target}.tiers.${tier} is missing`);
       for (const model of chosen) {
-        if (!allowed.includes(model)) {
+        // Copilot names may be written with or without the "(copilot)" vendor suffix.
+        const same = (a) => (target === 'copilot' ? modelKey(a) === modelKey(model) : a === model);
+        if (!allowed.some(same)) {
           errors.push(`models.${target}.tiers.${tier} uses "${model}", which is not in models.${target}.allowed`);
         }
       }
@@ -242,6 +244,15 @@ export function validateConfig(config) {
   }
   return errors;
 }
+
+// Copilot custom agents need qualified model names, "Model Name (vendor)" (e.g. "Claude Sonnet 4.5 (copilot)");
+// an unqualified name isn't resolved and the agent silently runs on the chat's selected model.
+export function copilotModelName(name) {
+  const trimmed = String(name).trim();
+  return /\([^()]+\)$/.test(trimmed) ? trimmed : `${trimmed} (copilot)`;
+}
+
+const modelKey = (name) => copilotModelName(name).toLowerCase().replace(/\s+/g, ' ');
 
 export function asList(value) {
   if (value === undefined || value === null) return [];
