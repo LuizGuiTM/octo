@@ -2,13 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { adapters, templateVars } from './adapters.js';
 import {
-  PACKAGE_ROOT, agents, awesomeInfo, commandSkills, coreSkills, domainInstructions, domainNames, domainSkills, render, schemaFile, template,
+  PACKAGE_ROOT, agents, awesomeInfo, commandSkills, coreSkills, domainInstructions, domainNames, domainSkills, packageVersion, render,
+  schemaFile, template,
   upstreamInfo, upstreamSkills,
 } from './sources.js';
 import { readIfExists, removeManagedBlock, toPosix, upsertManagedBlock, writeFile } from './fs-utils.js';
 import { asList } from './config.js';
-import { EVIDENCE_DIR, mcpSummary, resolveMcp, serversForHost } from './mcp.js';
-import { claudeCodeSettings, copilotAutoApprove, guardrailsText } from './host-settings.js';
+import { EVIDENCE_DIR, detectAzureDevOpsOrg, mcpSummary, resolveMcp, serversForHost } from './mcp.js';
+import { claudeCodeSettings, copilotAutoApprove, copilotHooksFile, guardrailsText } from './host-settings.js';
 import { readJson, syncHooks, syncListEntries, syncMapEntries } from './managed-json.js';
 
 export const MANIFEST = '.octo/manifest.json';
@@ -58,7 +59,7 @@ export function sync(root, config) {
   const own = (rel, content) => owned.set(toPosix(rel), content);
   const { upstream, core, catalog, promoted, domains, mcpSkills, instructions } = resolveSkills(config);
   const info = upstreamInfo();
-  const mcp = resolveMcp(config);
+  const mcp = resolveMcp(config, { azdoOrg: detectAzureDevOpsOrg(root), strict: true });
   const previous = readManifest(root);
   const conflicts = [];
   const wantedLines = []; // lines Octo wants in user files (.gitignore, .gitattributes), reconciled at the end
@@ -97,6 +98,7 @@ export function sync(root, config) {
 
   // Session continuity runtime.
   own('.octo/bin/octo-session.mjs', fs.readFileSync(path.join(PACKAGE_ROOT, 'runtime', 'octo-session.mjs')));
+  own('.octo/bin/octo-guard.mjs', fs.readFileSync(path.join(PACKAGE_ROOT, 'runtime', 'octo-guard.mjs')));
   own('.octo/templates/session.md', template('session.md'));
   own('.octo/templates/preferences.md', renderPreferences(config));
   own('.octo/MANUAL.md', fs.readFileSync(path.join(PACKAGE_ROOT, 'docs', 'MANUAL.md')));
@@ -135,6 +137,7 @@ export function sync(root, config) {
         own(adapter.agentPath(agent), adapter.agentFile(agent, config, render(agent.body, vars)));
       }
       upsertManagedBlock(path.join(root, adapter.instructionsFile), adapter.instructionsPrefix + render(bootstrap, vars));
+      if (target === 'copilot') own('.github/hooks/octo.json', `${JSON.stringify(copilotHooksFile(), null, 2)}\n`);
     }
     const after = {
       mcp: syncMapEntries(root, adapter.mcp.file, adapter.mcp.rootKey, hostServers, before.mcp, conflicts),
@@ -165,7 +168,7 @@ export function sync(root, config) {
   const stale = (previous.files ?? []).filter((rel) => !owned.has(rel));
   for (const rel of stale) fs.rmSync(path.join(root, rel), { force: true });
   pruneEmptyDirs(root, stale);
-  const manifest = { superpowers: info.commit, files: [...owned.keys()].sort(), managed, lines };
+  const manifest = { octo: packageVersion(), superpowers: info.commit, files: [...owned.keys()].sort(), managed, lines };
   writeFile(path.join(root, MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`);
 
   return {

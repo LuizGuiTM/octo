@@ -21,7 +21,8 @@ target org with `sf org display` before every deploy.
 - Preview: `sf project deploy preview` / `sf project retrieve preview` to see what would change.
 
 ## Validation before release
-- Validate without deploying: `sf project deploy validate --source-dir force-app --test-level RunLocalTests --target-org <alias>`.
+- During work, deploy only what changed: `sf project deploy start --source-dir <changed paths> --target-org <alias>`, and run only the affected test classes: `sf apex run test --class-names <TestA>,<TestB> --result-format human --wait 10`.
+- Full validation (`sf project deploy validate --source-dir force-app --test-level RunLocalTests`) is for release pipelines or `strict` rigor: it can take a long time on large orgs.
 - Quick deploy a validated job: `sf project deploy quick --job-id <id>`.
 - Test levels: `RunLocalTests` for release validation; `RunSpecifiedTests --tests A B` for fast loops.
 - Destructive changes use a `destructiveChanges.xml` manifest, and always need the user's explicit approval.

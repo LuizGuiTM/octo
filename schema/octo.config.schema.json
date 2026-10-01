@@ -123,7 +123,8 @@
     "mcp": {
       "type": "object",
       "properties": {
-        "enable": { "description": "MCP servers from the framework's mcp/ registry to install.", "type": "array", "items": { "type": "string" } },
+        "enable": { "description": "MCP servers from the framework's mcp/ registry to install (e.g. azure-devops, enabled automatically on Azure DevOps repos).", "type": "array", "items": { "type": "string" } },
+        "azureDevOpsOrg": { "description": "Azure DevOps organization for the azure-devops MCP server; detected from origin when omitted.", "type": "string" },
         "servers": {
           "description": "Repo-specific MCP servers. Use {env:NAME} for secrets and {workspace} for the repo root.",
           "type": "object",
@@ -161,6 +162,7 @@
       "type": "object",
       "required": ["allowed", "tiers"],
       "properties": {
+        "pin": { "description": "Copilot only: write these models into the agents. Leave false until the names are confirmed in the org's model picker; an unknown name makes Copilot fall back silently.", "type": "boolean" },
         "allowed": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
         "tiers": {
           "type": "object",

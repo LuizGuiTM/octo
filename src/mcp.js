@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PACKAGE_ROOT } from './sources.js';
@@ -29,7 +30,7 @@ export function registryServers() {
 }
 
 // Every server this repo should get: enabled registry servers + inline ones + Playwright for web testing.
-export function resolveMcp(config) {
+export function resolveMcp(config, context = {}) {
   const registry = registryServers();
   const resolved = {};
   for (const name of config.mcp?.enable ?? []) {
@@ -53,8 +54,26 @@ export function resolveMcp(config) {
   for (const [name, def] of Object.entries(resolved)) {
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(name)) throw new Error(`MCP server name "${name}" must be lowercase letters, digits, "-" or "_"`);
     if (!def.command && !def.url) throw new Error(`MCP server "${name}" needs "command" (stdio) or "url" (http)`);
+    // {azdoOrg}: the Azure DevOps organization, from config or detected from the origin remote.
+    const org = context.azdoOrg ?? config.mcp?.azureDevOpsOrg;
+    const needsOrg = JSON.stringify(def).includes('{azdoOrg}');
+    if (needsOrg && context.strict && !org) {
+      throw new Error(`MCP server "${name}" needs the Azure DevOps organization: set "mcp.azureDevOpsOrg" in octo.config.json (origin isn't an Azure DevOps remote)`);
+    }
+    if (needsOrg && org) resolved[name] = JSON.parse(JSON.stringify(def).replaceAll('{azdoOrg}', org));
+    if (def.skill) resolved[name].skill = def.skill;
   }
   return resolved;
+}
+
+// "acme" from https://dev.azure.com/acme/…, git@ssh.dev.azure.com:v3/acme/…, or https://acme.visualstudio.com/…
+export function detectAzureDevOpsOrg(root) {
+  try {
+    const url = execFileSync('git', ['-C', root, 'remote', 'get-url', 'origin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return url.match(/dev\.azure\.com[/:](?:v3\/)?([^/]+)\//)?.[1] ?? url.match(/\/\/(?:[^@/]+@)?([^/.@]+)\.visualstudio\.com/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // Placeholders: {env:NAME} for secrets, {workspace} for the repo root.

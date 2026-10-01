@@ -26,7 +26,9 @@ Talk to the user in pt-BR; write code, skills and these docs in English. README 
 | `agents/*.md` | Neutral subagent definitions: `tier`, `argument-hint`, and per-host `claude-code:` / `copilot:` frontmatter blocks |
 | `templates/` | `bootstrap.md` (instructions block), `AGENTS.md` scaffold, `session.md`, `preferences.md` (pt-BR) |
 | `docs/MANUAL.md` | User manual (pt-BR), installed as `.octo/MANUAL.md` |
-| `runtime/octo-session.mjs` | Zero-dep session + preferences script, copied to `.octo/bin/` |
+| `runtime/octo-session.mjs` | Zero-dep session + preferences script (SessionStart and UserPromptSubmit hooks), copied to `.octo/bin/` |
+| `runtime/octo-guard.mjs` | Zero-dep hook script: `pre-tool` (deny dangerous commands/protected paths, all host input shapes) and `stop` |
+| `commands/octo/` | `/octo`: the plain-language single entry point that routes to the other flows |
 | `mcp/<name>/` | Company MCP registry (`server.json` + optional `skill/`); `_`-prefixed dirs are examples |
 | `src/config.js` | Defaults, autonomy presets, validation, `DOMAINS`, domain detection |
 | `src/sources.js` | Reads upstream, imported, own and command skills, agents, templates |
@@ -60,4 +62,7 @@ Talk to the user in pt-BR; write code, skills and these docs in English. README 
 - `npx <local.tgz>` runs nothing; use `npx -p <spec> octo …`. From the registry, `npx @luizguitm/octo` works.
 - The npm registry can take ~3 minutes to show a new version after a `202 Accepted` publish.
 - Session branch detection uses `git branch --show-current` (works before the first commit).
+- Hooks: deny = exit 2 + stderr (every host) plus JSON with both `permissionDecision` (Copilot CLI) and
+  `hookSpecificOutput` (Claude Code, VS Code). Quoted text in commands is ignored by the guard (commit messages).
+- Copilot model names are unconfirmed per org: agents are pinned only with `models.copilot.pin: true`.
 - Shell heredocs in this environment mangle backslashes; write files with the editor tools instead.

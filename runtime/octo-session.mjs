@@ -88,8 +88,11 @@ function preferencesText() {
     [path.join(ROOT, '.octo', 'preferences.local.md'), 'this repository, overrides global'],
   ];
   const parts = [];
-  for (const [file, label] of sources) {
-    if (!fs.existsSync(file)) continue;
+  const existing = sources.filter(([file]) => fs.existsSync(file));
+  if (!existing.length || existing.some(([file]) => fs.readFileSync(file, 'utf8').includes('octo:unreviewed'))) {
+    parts.push('Octo: the user\'s preferences have NOT been reviewed yet. Before answering anything (even a simple question), greet in one line and follow .claude/skills/octo-prefs/SKILL.md (three quick questions: models on this host, communication, autonomy).');
+  }
+  for (const [file, label] of existing) {
     const lines = fs.readFileSync(file, 'utf8')
       .replace(/<!--[\s\S]*?-->/g, '')
       .split(/\r?\n/)
@@ -157,13 +160,25 @@ function close(ref) {
 const [command, arg] = process.argv.slice(2);
 try {
   if (command === 'status' || command === undefined) console.log(statusText());
-  else if (command === 'prefs') console.log(preferencesText() || 'No personal preferences filled in yet (~/.octo/preferences.md, .octo/preferences.local.md).');
+  else if (command === 'prefs') console.log(preferencesText());
   else if (command === 'new') create(process.argv.slice(3).join(' '));
   else if (command === 'close') close(arg);
   else if (command === 'hook' && arg === 'session-start') {
-    // Claude Code SessionStart: inject the session state as additional context.
+    // SessionStart: inject the session state and preferences. Claude Code and VS Code read hookSpecificOutput;
+    // Copilot CLI reads a top-level additionalContext (--format copilot emits both; Claude Code gets only its own).
     const context = [statusText(), preferencesText()].filter(Boolean).join('\n\n');
-    console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context } }));
+    const claude = { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context } };
+    const copilot = process.argv.includes('copilot');
+    console.log(JSON.stringify(copilot ? { additionalContext: context, ...claude } : claude));
+  } else if (command === 'hook' && arg === 'prompt') {
+    // UserPromptSubmit (Claude Code): until the preferences are reviewed, remind on every message. Silent after.
+    if (/NOT been reviewed/.test(preferencesText())) {
+      const reminder = 'Octo: the user\'s preferences have NOT been reviewed. Before answering this message (even a '
+        + 'simple question), greet in one line and follow .claude/skills/octo-prefs/SKILL.md (three quick questions), '
+        + 'then handle the message.';
+      const claude = { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: reminder } };
+      console.log(JSON.stringify(process.argv.includes('copilot') ? { additionalContext: reminder, ...claude } : claude));
+    }
   } else {
     throw new Error(`unknown command "${command}"`);
   }

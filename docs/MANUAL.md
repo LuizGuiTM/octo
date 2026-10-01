@@ -27,6 +27,26 @@ agentes de IA trabalham nos repositórios, no **Claude Code** e no **GitHub Copi
 
 ---
 
+## Guia rápido (para quem não é dev)
+
+Você só precisa de **um comando**. No chat do Copilot ou do Claude Code, escreva:
+
+```
+/octo <o que você precisa, com as suas palavras>
+```
+
+Exemplos:
+- `/octo Ao salvar uma oportunidade com desconto acima de 10% aparece um erro. Deveria salvar normalmente.`
+- `/octo Quero que o campo Segmento fique obrigatório no cadastro de cliente PJ.`
+- `/octo continuar` (retoma de onde parou)
+- `/octo finalizar` (fecha o trabalho e abre o PR)
+
+O agente entende o pedido, pergunta só o que é de negócio (comportamento esperado, exemplos) e termina com um
+**link do PR** para o time revisar. Na primeira vez ele faz três perguntas rápidas sobre como você prefere
+trabalhar. Se preferir respostas sem termos técnicos, diga "linguagem simples".
+
+---
+
 ## 1. Primeiros passos
 
 Requisitos: Node.js 20+ e git. Para o teste web: Chrome com a extensão Claude in Chrome (Claude Code)
@@ -42,9 +62,19 @@ ou nada extra no Copilot (o Playwright MCP é baixado sozinho).
    Mudou algo? `npx @luizguitm/octo sync`.
 3. **Commite o que foi gerado** (`chore: install Octo`). Assim todo o time recebe a mesma configuração.
 4. **Abra o repositório** no Claude Code (`claude --chrome` se for testar UI) ou no VS Code com Copilot.
-5. **Prepare o contexto**: digite `/octo-context`. O agente preenche o `AGENTS.md` a partir do código.
-6. **Suas preferências** (opcional): `/octo-prefs` faz uma entrevista curta e preenche o arquivo.
-7. **Trabalhe**: `/octo-start <o que você quer>` e siga as próximas instruções do agente.
+5. **Prepare o contexto** (opcional): `/octo-context` faz um mapa **rápido** do repositório (cerca de 10 minutos,
+   mesmo num monorepo grande). As áreas são detalhadas só quando uma tarefa passa por elas. Se você pular,
+   o agente faz isso sozinho na primeira tarefa.
+6. **Preferências**: na **primeira mensagem** (qualquer uma, até uma pergunta), enquanto você não revisou as
+   preferências, o agente cumprimenta e faz até três perguntas rápidas (modelos disponíveis no Copilot, forma
+   de comunicação, autonomia). "Manter tudo" já conta como revisão. Depois ele responde o que você pediu e não
+   pergunta mais. Para rever depois: `/octo-prefs`.
+7. **Trabalhe**: `/octo <o que você precisa, em linguagem natural>` e siga as instruções do agente.
+
+**Toda vez que uma implementação começa**, o agente faz sozinho as checagens de início: atualiza o Octo se
+houver versão nova (`npx -y @luizguitm/octo@latest sync`), confirma que as suas preferências foram revisadas e
+anuncia qual modelo cada subagente vai usar. Se um modelo não existir na sua ferramenta, ele pergunta em vez de
+trocar em silêncio.
 
 Confira a instalação a qualquer momento: `npx @luizguitm/octo doctor`.
 
@@ -55,6 +85,7 @@ Digite no chat do agente. Funcionam igual nos dois hosts.
 
 | Comando | O que faz | Resultado |
 |---|---|---|
+| `/octo <pedido>` | **Ponto de entrada único**: entende o pedido (novo, bug, continuar, finalizar, dúvida) e roda o fluxo certo | O que o fluxo entregar, terminando no PR |
 | `/octo-start <pedido>` | Inicia um trabalho: branch `feature/…-octo`, sessão, contexto, brainstorming | Spec aprovada em `docs/superpowers/specs/` |
 | `/octo-plan` | Transforma a spec em plano com ondas paralelas e cenários de aceite | Plano em `docs/superpowers/plans/`, validado |
 | `/octo-run` | Executa o plano onda a onda, com subagentes em paralelo | Código + testes, commit por onda |
@@ -125,7 +156,7 @@ Um documento pessoal curto diz aos agentes como **você** quer trabalhar, em tr�
 ```markdown
 ## Modelos (só os permitidos pelo time)
 - Claude Code: deep = opus · standard = sonnet · fast = haiku
-- Copilot: deep = Claude Opus 4.5 → GPT-5.2 · standard = Claude Sonnet 4.5 · fast = Claude Haiku 4.5
+- Copilot: deep = Claude Opus 4.5 · standard = Claude Sonnet 4.5 · fast = Claude Haiku 4.5 (confirme os nomes do seletor de modelos)
 - Nível deep: só para desenho, revisão final e debugging difícil
 
 ## Comunicação
@@ -201,6 +232,7 @@ Lista atual completa: `npx @luizguitm/octo skills list --all`. Parte do catálog
 | `upstream.exclude` | Skills do superpowers a não instalar | `[]` |
 | `models.<host>.allowed` / `tiers` | Modelos permitidos e o de cada nível (`deep`, `standard`, `fast`) | ver arquivo |
 | `parallelism.maxSubagents` | Máximo de subagentes ao mesmo tempo | `8` |
+| `rigor` | Quanto verificar: `proportional` (testa o que mudou; suíte completa uma vez no fim; numa org, só as classes de teste afetadas; uma revisão no fim) ou `strict` (tudo por tarefa e por onda) | `proportional` |
 | `autonomy` | `level`, `approvals.spec/plan`, `commit`, `push`, `pullRequest`, `draftPullRequest`, `protectedBranches`, `branchPattern` (padrão `{type}/{topic}-octo`), `askWhen`. Mais fácil: `octo autonomy <nível>` | nível `balanced` |
 | `webTesting` | `enabled`, `baseUrl`, `startCommand`, `tools` por host | Chrome no Claude, Playwright no Copilot |
 | `dod` | `dir`, `extraCriteria` (critérios extras do time) | `docs/superpowers/dod` |
@@ -238,34 +270,54 @@ Critérios extras do seu time: `"dod": { "extraCriteria": ["Aprovado pelo PO", "
 
 ## 10. Guardrails
 
-| Regra | Claude Code | Copilot |
+| Regra | Claude Code | Copilot (VS Code, CLI e agente na nuvem) |
 |---|---|---|
-| Comandos bloqueados (`git push --force`, `reset --hard`…) | **Bloqueio real** (`permissions.deny`) | Pede confirmação + regra nas instruções |
+| Comandos bloqueados (`git push --force` em qualquer ordem de flags, `reset --hard`, `clean -fd`…) | **Bloqueio real** (hook + `permissions.deny`) | **Bloqueio real** (hook) |
 | Comandos com confirmação (`git push`, `rm -rf`, deploy…) | Pede confirmação (`permissions.ask`) | Pede confirmação (`autoApprove: false`) |
 | Comandos liberados (`git status`…) | Sem confirmação | Sem confirmação |
-| Arquivos protegidos (`.env`, chaves…) | Leitura e edição bloqueadas | Regra nas instruções |
+| Arquivos protegidos (`.env`, chaves…) | **Bloqueio real** (hook + permissões) | **Bloqueio real** (hook) |
 | Rodadas de correção | Limite `maxFixRounds`, depois pergunta | Idem |
 
 Commit nunca vai direto para `main`/`master`/`develop`; push e PR só com a política ligada ou com a sua
 confirmação. O `pre-commit-check.mjs` bloqueia segredos, arquivos protegidos e prints fora do lugar.
+
+### Hooks
+Hooks são comandos que a ferramenta roda **sozinha** em certos momentos. Eles garantem o que uma instrução só
+pede. O Octo instala:
+
+| Hook | Claude Code (`.claude/settings.json`) | Copilot (`.github/hooks/octo.json`) | O que faz |
+|---|---|---|---|
+| Início de sessão | `SessionStart` | `sessionStart` | Injeta o estado da tarefa (onde parou, próximo passo) e as suas preferências |
+| A cada mensagem | `UserPromptSubmit` | `userPromptSubmitted` (VS Code; no Copilot CLI a instrução do bloco cobre) | Enquanto as preferências não foram revisadas, lembra o agente de revisá-las antes de responder; depois, não faz nada |
+| Antes de cada comando/edição | `PreToolUse` | `preToolUse` | `octo-guard.mjs` lê o comando **inteiro** e bloqueia force push, `reset --hard`, `clean -fd`, `branch -D` e acesso a arquivos protegidos |
+| Ao encerrar | `Stop` | – | Na fase de finalização, não deixa o agente parar com commits sem push: ele termina com o PR ou o link |
+
+No VS Code, os hooks do Copilot dependem de `chat.useHooks`, que já vem ligado. Os do Claude Code
+(`.claude/settings.json`) o VS Code só lê se `chat.useClaudeHooks` estiver ligado, o que evita rodar em dobro.
 
 ### Autonomia e pull requests
 
 | Nível (`octo autonomy <nível>`) | Aprova a spec? | Revisa o plano? | Commit | Push | Pull request | Pergunta quando |
 |---|---|---|---|---|---|---|
 | `supervised` | espera você | espera você | não (você commita) | não | não | qualquer ambiguidade ou ação externa |
-| `balanced` (padrão) | espera você | não | sim, na branch `feature/…-octo` | pergunta | pergunta | ambiguidade que muda o comportamento, ação externa, destrutiva, segredos |
+| `balanced` (padrão) | espera você | não | sim, na branch `feature/…-octo` | **sim** | **sim, como rascunho** | ambiguidade que muda o comportamento, deploy/ação externa, destrutiva, segredos |
 | `full` | não (auto-revisa e registra) | não | sim | **sim** | **sim, como rascunho** | só o essencial: destrutivo, segredos/custos, verificação falhando 2× |
 
-**Para o agente ir sozinho do pedido até o PR:**
-1. `npx @luizguitm/octo autonomy full` (ajusta a política **e** os guardrails juntos). O push e o PR passam a
-   ser feitos pelo script do Octo (`open-pr.mjs`), que fica liberado sem confirmação. Esse script só faz
-   `git push -u origin <branch atual>`: nunca força, nunca a partir de `main`/`develop`. O `git push` digitado
-   à mão continua pedindo confirmação, e o `push --force` continua bloqueado.
-2. Autentique a CLI do seu provedor, detectado pelo remoto `origin`:
-   - GitHub: instale o [`gh`](https://cli.github.com) e rode `gh auth login`.
-   - Azure DevOps: instale o [`az`](https://aka.ms/azure-cli), rode `az extension add --name azure-devops` e
-     `az login` (ou defina `AZURE_DEVOPS_EXT_PAT` com um PAT que tenha permissão de *Code: Read & Write*).
+**Para o trabalho terminar num PR** (padrão desde a 0.3.0: `balanced` e `full` abrem PR em rascunho):
+1. O push e o PR são feitos pelo script do Octo (`open-pr.mjs`), que fica liberado sem confirmação. Ele só
+   faz `git push -u origin <branch atual>`: nunca força, nunca a partir de `main`/`develop`. O `git push`
+   digitado à mão continua pedindo confirmação, e o `push --force` continua bloqueado. Para o agente não
+   esperar nem a sua aprovação do desenho, use `npx @luizguitm/octo autonomy full`.
+2. Como o PR é criado, do mais simples ao mais completo:
+   - **Azure DevOps sem instalar nada:** em repositórios Azure DevOps, o `init` ativa o **MCP oficial da
+     Microsoft** (`https://mcp.dev.azure.com/<org>`, com a organização detectada pelo `origin`). O agente cria o PR
+     por ele; na primeira vez, o VS Code pede login na sua conta Microsoft.
+   - **Sempre funciona:** se nada estiver disponível, o agente faz o push e entrega um **link de um clique** que
+     abre a tela "criar PR" já preenchida.
+   - **Pela CLI** (opcional, para devs), detectada pelo remoto `origin` (o `npx @luizguitm/octo doctor` confere):
+     - GitHub: instale o [`gh`](https://cli.github.com) e rode `gh auth login`.
+     - Azure DevOps: instale o [`az`](https://aka.ms/azure-cli), rode `az extension add --name azure-devops` e
+       `az login` (ou defina `AZURE_DEVOPS_EXT_PAT` com um PAT que tenha permissão de *Code: Read & Write*).
 3. No Claude Code, permita que o agente trabalhe sem pedir confirmação a cada edição (modo *auto* ou
    *accept edits*); no Copilot, as regras de terminal geradas já liberam o que a política permite.
 4. `/octo-start <pedido>`. O agente termina com o link do PR em rascunho. Se a CLI faltar ou não estiver
@@ -318,6 +370,11 @@ faz o `sync` falhar.
 |---|---|
 | O agente não segue o fluxo | Confira `npx @luizguitm/octo doctor`; no Claude Code, reinicie a sessão para carregar o `CLAUDE.md` |
 | `/octo-*` não aparece no Copilot | Atualize o VS Code; as skills vêm de `.claude/skills` (Agent Skills). Recarregue a janela |
+| O agente usou modelos que você não reconhece | No Copilot, um nome de modelo que não existe na sua organização faz ele trocar de modelo sem avisar. Desde a 0.3.0 os agentes do Copilot **não fixam modelo** (usam o que você escolheu no chat) até alguém confirmar os nomes com `/octo-prefs`, que então liga `models.copilot.pin` |
+| O PR não foi aberto no Azure DevOps | Confira se `azure-devops` está em `mcp.enable` (o `init` ativa em repositórios Azure) e faça o login da conta Microsoft quando o VS Code pedir. Sem isso, o agente entrega o link de um clique para criar o PR |
+| Demorou muito para criar o contexto | Atualize (`npx -y @luizguitm/octo@latest sync`): desde a 0.3.0 o contexto é rápido (≈10 min) e incremental. Com um MCP de grafo de código (ex.: graphify), fica ainda mais rápido |
+| O agente testa demais | Confira `"rigor": "proportional"` no `octo.config.json` (padrão desde a 0.3.0) |
+| Não chegou ao PR | `npx @luizguitm/octo doctor` mostra se a política abre PR e se o `gh`/`az` está instalado e autenticado. O `balanced` abre PR em rascunho desde a 0.3.0 |
 | Agentes aparecem duplicados no VS Code | O Copilot também lê `.claude/agents`. Se usar só o Copilot: `"targets": ["copilot"]` |
 | Teste web não abre o navegador | Claude Code: inicie com `claude --chrome`. Copilot: inicie o servidor `playwright` no `.vscode/mcp.json` |
 | Prints fora da pasta do DoD | O Playwright salva nomes explícitos relativos à raiz: use o caminho completo do DoD. O `pre-commit-check` avisa |

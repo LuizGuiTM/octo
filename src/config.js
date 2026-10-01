@@ -50,17 +50,22 @@ export function autonomyPreset(level) {
       ],
     };
   }
+  // balanced: the work always ends in a draft PR (a human reviews it there); design still needs approval.
   return {
-    ...base, commit: true, push: false, pullRequest: false, draftPullRequest: true,
+    ...base, commit: true, push: true, pullRequest: true, draftPullRequest: true,
     approvals: { spec: true, plan: false },
     askWhen: [
       'requirements are ambiguous and the choice changes user-visible behavior',
       'two or more designs are viable and they differ in cost, risk or product impact',
-      'an action is outward-facing (push, PR, deploy, messages, external APIs with side effects)',
+      'an action is outward-facing beyond pushing the work branch and opening a draft PR (deploys, messages, external APIs with side effects)',
       ...ASK_ALWAYS,
     ],
   };
 }
+
+// How much verification the agent does. Superpowers alone is strict everywhere, which is slow on big
+// repos and orgs; "proportional" keeps the guarantees but scopes tests and reviews to what changed.
+export const RIGOR_LEVELS = ['proportional', 'strict'];
 
 // Model names differ per host: Claude Code takes aliases or full model IDs,
 // Copilot takes the display names shown in its model picker (a list = fallback order).
@@ -84,17 +89,21 @@ export function defaultConfig({ domains = DEFAULT_DOMAINS, targets = TARGETS } =
         tiers: { deep: 'opus', standard: 'sonnet', fast: 'haiku' },
       },
       copilot: {
-        allowed: ['Claude Opus 4.5', 'Claude Sonnet 4.5', 'Claude Haiku 4.5', 'GPT-5.2'],
+        // Display names from the Copilot model picker. Not pinned until someone confirms them for the org
+        // (pin: true): an unknown pinned name makes Copilot fall back to another model silently.
+        pin: false,
+        allowed: ['Claude Opus 4.5', 'Claude Sonnet 4.5', 'Claude Haiku 4.5'],
         tiers: {
-          deep: ['Claude Opus 4.5', 'GPT-5.2'],
-          standard: ['Claude Sonnet 4.5'],
-          fast: ['Claude Haiku 4.5'],
+          deep: 'Claude Opus 4.5',
+          standard: 'Claude Sonnet 4.5',
+          fast: 'Claude Haiku 4.5',
         },
       },
     },
     parallelism: {
       maxSubagents: 8,
     },
+    rigor: 'proportional',
     autonomy: autonomyPreset('balanced'),
     webTesting: {
       enabled: domains.includes('web') || domains.includes('salesforce'),
@@ -202,6 +211,9 @@ export function validateConfig(config) {
   for (const cmd of allowed) {
     const blocked = [...(guardrails.commands?.deny ?? []), ...(guardrails.commands?.ask ?? [])].find((c) => c.startsWith(cmd) || cmd.startsWith(c));
     if (blocked) errors.push(`guardrails.commands.allow "${cmd}" overlaps with deny/ask "${blocked}"`);
+  }
+  if (config.rigor !== undefined && !RIGOR_LEVELS.includes(config.rigor)) {
+    errors.push(`rigor must be one of: ${RIGOR_LEVELS.join(', ')}`);
   }
   const pattern = config.autonomy?.branchPattern;
   if (pattern !== undefined && (typeof pattern !== 'string' || !pattern.includes('{topic}'))) {

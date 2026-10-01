@@ -54,7 +54,7 @@ test('sync installs superpowers untouched plus the Octo layer for both hosts', (
     const claudeAgent = parseFrontmatter(read(root, '.claude/agents/octo-worker-deep.md')).data;
     assert.equal(claudeAgent.model, 'opus');
     const copilotAgent = parseFrontmatter(read(root, '.github/agents/octo-worker-deep.agent.md')).data;
-    assert.deepEqual(copilotAgent.model, ['Claude Opus 4.5', 'GPT-5.2']);
+    assert.equal(copilotAgent.model, undefined, 'Copilot models are not pinned until confirmed');
     assert.equal(copilotAgent['user-invocable'], false);
 
     const claudeMd = read(root, 'CLAUDE.md');

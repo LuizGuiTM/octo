@@ -1,58 +1,51 @@
 ---
 name: octo-ai-context
-description: "Use before other work when AGENTS.md is missing, contains octo:needs-context, or contradicts the code, and at the end of every task to record what was learned. Builds and maintains AI-facing docs (AGENTS.md, docs/ai/) with parallel subagents."
+description: "Use before other work when AGENTS.md is missing, contains octo:needs-context, or contradicts the code, and at the end of every task to record what was learned. Builds AI-facing docs (AGENTS.md, docs/ai/) quickly and incrementally: a minimal map first, then each area only when a task touches it."
 metadata:
   complements: [brainstorming, systematic-debugging, finishing-a-development-branch]
 ---
 
-# AI context first
+# AI context first, but fast
 
-AI docs are the project's long-term memory. A future agent with a fresh context should be productive
-after reading `AGENTS.md` plus one linked doc. Treat them as production code: accurate, reviewed, current.
+AI docs are the project's long-term memory. They are built **incrementally**: a short map of the whole repo
+first, then depth only for the areas real tasks touch. Never try to document a large repository in one go:
+on a 10-year monorepo that takes hours and most of it is never read.
 
 ## Modes
-- **Bootstrap**: `AGENTS.md` is missing or has the `octo:needs-context` marker.
-- **Refresh**: docs exist but a task revealed they are wrong or incomplete.
+- **Quick bootstrap**: `AGENTS.md` is missing or has `octo:needs-context`. Budget: about 10 minutes.
+- **Area**: a task is about to touch an area that `AGENTS.md` lists as "not yet documented".
 - **Record**: end of a task; add what the next agent needs (called from `octo-autonomous-finish`).
 
-## Bootstrap (parallel)
-**Small repo** (roughly ≤ 20 source files, one stack): skip the dispatches below. Read the files yourself,
-verify the commands, and fill `AGENTS.md` directly; add `docs/ai/` pages only when there's more to say
-than fits in `AGENTS.md`.
+## Quick bootstrap (≈ 10 minutes, no deep reading)
+1. **If a code-graph MCP is configured** (see "Custom MCP servers" in the instructions block, e.g. graphify),
+   ask it for the module/community map and the entry points first. It replaces most of the exploration.
+2. Read only **root-level signals**: README, package manifests (`package.json`, `sfdx-project.json`,
+   `pyproject.toml`), CI config, top-level directories, and one listing level below them. For big metadata
+   trees (Salesforce `force-app/main/default/*`), **count** items per type with a file listing; don't open them.
+3. At most **3** `octo-explorer` dispatches, in one turn, each with a narrow question: how to build/test/deploy,
+   the top-level layout and entry points, and the conventions visible in 2-3 representative files.
+4. Write `AGENTS.md` with: project in 3 lines, stack, **commands** (verified or marked `(unverified)`), a layout
+   table of top-level areas, conventions seen, and a section **"Not yet documented"** listing the big areas
+   (e.g. "`force-app/main/default/classes` – 1,240 Apex classes"). Remove `octo:needs-context`.
+5. Stop there. Don't write `docs/ai/` pages, glossaries or ADRs in the bootstrap.
 
-Catalog helpers (domain `engineering`, when enabled): `engineering/docs/acquire-codebase-knowledge` gives a
-structured survey method with templates, and `engineering/docs/create-agentsmd` lists what a good AGENTS.md
-covers. Use them for method and completeness, but keep Octo's structure and size limits below. For ADRs, use
-`architecture/adr/create-architectural-decision-record`.
+## Area mode (lazy, when a task needs it)
+When a task touches an area in "Not yet documented" (e.g. the Opportunity pricing classes):
+1. Explore **that area only** (1-2 `octo-explorer` dispatches, or the code graph).
+2. Write `docs/ai/<area>.md` (≤ 80 lines: purpose, main classes/files with paths, data flow, traps) and link it
+   from `AGENTS.md`, moving the area out of "Not yet documented".
 
-1. Survey the repo yourself for two minutes: root files, package manifests, CI config, top-level dirs.
-2. Dispatch in **one turn**, one `octo-explorer` per area:
-   - Commands: install, dev, test (all and single), lint, build. Source: scripts, Makefile, CI.
-   - Architecture: entry points, top-level modules, data flow, external services.
-   - Conventions: naming, error handling, logging, state management, folder patterns.
-   - Testing: frameworks, layout, fixtures, how integration tests reach dependencies.
-   - Domain: key entities and terms (becomes the glossary).
-   - Stack specifics: one explorer per detected stack (web, salesforce, python).
-3. Verify the commands: run install/test/lint when it is safe and fast. Mark unverified ones `(unverified)`.
-4. Dispatch `octo-doc-writer` agents in parallel, one per file:
-   - `AGENTS.md` (fill every section of the scaffold; remove the `octo:needs-context` line)
-   - `docs/ai/architecture.md`
-   - `docs/ai/glossary.md`
-   - `docs/ai/decisions/0001-record-architecture-decisions.md` (the ADR habit itself)
-5. Read the results together and fix contradictions between files.
-6. Ask the user only about facts the code cannot tell you (business rules, owners, environments).
-
-## Refresh / Record
-- Fix the wrong statement where it lives, with evidence. Don't append contradictions.
-- Add a **Gotcha** when something cost you more than ~15 minutes.
-- Add an ADR when you chose between viable designs.
+## Record (end of a task)
+- Fix any wrong statement where it lives, with evidence. Don't append contradictions.
+- Add a **Gotcha** when something cost more than ~15 minutes.
+- Add an ADR only when you chose between viable designs (`architecture/adr/create-architectural-decision-record`).
 - Update the commands table when you discover or change a command.
-- Link specs and plans (`docs/superpowers/specs|plans/`) from the relevant `docs/ai/` page if they describe lasting behavior.
+- Keep it to minutes: record what this task learned, not a survey of the neighbourhood.
 
 ## Quality bar
-- `AGENTS.md` ≤ ~150 lines, and every command is copy-pasteable.
-- Every architectural claim has a `path` reference.
-- No duplicated facts across files; link instead.
-- Written in the configured artifact language.
+- `AGENTS.md` ≤ ~150 lines; every command copy-pasteable; every claim about the code has a `path`.
+- No duplicated facts across files; link instead. Written in the configured artifact language.
 - Host files (`CLAUDE.md`, `.github/copilot-instructions.md`) only point to `AGENTS.md`; never put project
-  facts inside the `octo:begin/end` block. It is regenerated.
+  facts inside the `octo:begin/end` block (it is regenerated).
+- Catalog helpers when you need a checklist: `engineering/docs/create-agentsmd` (what a good AGENTS.md covers)
+  and `engineering/docs/acquire-codebase-knowledge` (survey method). Use them for completeness, not for size.

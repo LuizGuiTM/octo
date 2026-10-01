@@ -41,12 +41,14 @@ export const adapters = {
     // Copilot custom agent fields: name, description, argument-hint, model (list = fallback order), tools,
     // agents, handoffs, user-invocable, disable-model-invocation, target… Host-specific fields come from `copilot:`.
     agentFile(agent, config, body) {
+      // Copilot silently falls back to another model when a pinned name doesn't exist in the org, so models are
+      // only pinned once someone confirmed the real names (models.copilot.pin = true, set by /octo-prefs).
       const models = asList(config.models.copilot.tiers[agent.tier]);
       const frontmatter = {
         name: `octo-${agent.name}`,
         description: agent.description,
         'argument-hint': agent['argument-hint'],
-        model: models.length === 1 ? models[0] : models,
+        model: config.models.copilot.pin ? (models.length === 1 ? models[0] : models) : undefined,
         'user-invocable': false,
         ...(agent.copilot ?? {}),
       };
@@ -74,7 +76,9 @@ export function templateVars(config, target, extra = {}) {
     artifactLanguage: config.language?.artifacts ?? 'en',
     documentLanguage: config.language?.documents ?? config.language?.responses ?? 'en',
     allowedModels: models.allowed.map((m) => `\`${m}\``).join(', '),
-    modelTiers: tiers,
+    modelTiers: target === 'copilot' && !models.pin
+      ? `${tiers}\nThese names are **not confirmed** for this organization, so agents are **not pinned**: every subagent runs on the model the user picked in the chat. Don't choose other models yourself. When the user confirms the real names (\`/octo-prefs\`), set \`models.copilot.pin: true\` and run \`npx -y @luizguitm/octo@latest sync\`.`
+      : tiers,
     maxSubagents: String(config.parallelism?.maxSubagents ?? 8),
     branchPolicy: `Work branches are named \`${branchPattern(autonomy)}\` ({type} = feature | fix | docs | chore; {topic} = short kebab-case topic), e.g. \`${branchPattern(autonomy).replace('{type}', 'feature').replace('{topic}', 'status-filter')}\` or \`${branchPattern(autonomy).replace('{type}', 'fix').replace('{topic}', 'discount-error')}\`. Never work directly on: ${(autonomy.protectedBranches ?? []).map((b) => `\`${b}\``).join(', ')}.`,
     commitPolicy: autonomy.commit
@@ -100,6 +104,21 @@ export function templateVars(config, target, extra = {}) {
         : '- Finishing: present superpowers\' options after committing; "keep the branch" is the safe default.',
     ].join('\n'),
     askWhen: (autonomy.askWhen ?? []).map((reason) => `- ${reason}`).join('\n'),
+    rigorLevel: config.rigor ?? 'proportional',
+    rigorPolicy: (config.rigor ?? 'proportional') === 'strict'
+      ? [
+        '- Full superpowers rigor: TDD for every change, spec and quality review per task, full test suite after every wave.',
+        '- Salesforce: `RunLocalTests` validation before the final commit.',
+      ].join('\n')
+      : [
+        '- **Test what changed, once.** TDD for new behavior and bug fixes (the failing test first), but while working run only the tests of the code you touched. Run the full suite **once**, before the final commit.',
+        '- **Salesforce orgs are slow and shared:** run only the test classes of the classes you changed (`sf apex run test --class-names A,B` / `RunSpecifiedTests`). Never `RunLocalTests` or all-org runs unless asked. Deploy only the changed metadata (`--source-dir` of those paths), not the whole project.',
+        '- **Reviews:** one review of the whole diff at the end. Per-task reviews only for `deep`-tier tasks or plans with more than 6 tasks.',
+        '- **Integration gate per wave:** the tests of the files the wave touched, not the full suite.',
+        '- **Web scenarios:** once, at the end (`/octo-test-web`), only the scenarios the change affects.',
+        '- **Don\'t re-verify** what hasn\'t changed since the last green run, and don\'t add tests for untouched legacy code.',
+        '- Never skip: the regression test for a bug, the final full-suite run, the DoD evidence.',
+      ].join('\n'),
     webTestingEnabled: config.webTesting?.enabled ? 'enabled' : 'disabled',
     webTool: adapter.webTool[webTool] ?? webTool,
     webBaseUrl: config.webTesting?.baseUrl ?? 'http://localhost:3000',

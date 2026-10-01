@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,7 +8,8 @@ import {
   writeConfig,
 } from './config.js';
 import { renderPreferences, resolveSkills, sync } from './sync.js';
-import { commandSkills, domainNames } from './sources.js';
+import { detectAzureDevOpsOrg } from './mcp.js';
+import { commandSkills, domainNames, packageVersion } from './sources.js';
 
 const HELP = `octo — company layer on top of superpowers, for Claude Code and GitHub Copilot
 
@@ -104,6 +106,8 @@ function init(root, flags) {
   const domains = csv(flags.domains) ?? detectDomains(root);
   const targets = csv(flags.targets) ?? TARGETS;
   const config = defaultConfig({ domains, targets });
+  // Azure DevOps repos get Microsoft's MCP server: PRs and work items with the Microsoft sign-in, no az CLI.
+  if (detectAzureDevOpsOrg(root)) config.mcp.enable = [...new Set([...config.mcp.enable, 'azure-devops'])];
   const errors = validateConfig(config);
   if (errors.length) throw new Error(errors.join('\n'));
   writeConfig(root, config);
@@ -114,7 +118,7 @@ function init(root, flags) {
   if (!fs.existsSync(prefs)) {
     prefsInit(root, {});
   }
-  console.log('Next: open the repo in Claude Code or Copilot and type /octo-help (manual: .octo/MANUAL.md).');
+  console.log('Next: open the repo in Claude Code or Copilot and type /octo followed by what you need, in plain language (manual: .octo/MANUAL.md).');
   return 0;
 }
 
@@ -148,12 +152,54 @@ function doctor(root) {
     [fs.existsSync(path.join(root, '.octo/manifest.json')), 'octo sync has run'],
     [fs.existsSync(path.join(root, '.claude/skills/using-superpowers/SKILL.md')), 'superpowers skills installed'],
     [fs.existsSync(path.join(root, 'AGENTS.md')), 'AGENTS.md exists'],
-    [!/octo:needs-context/.test(readText(path.join(root, 'AGENTS.md'))), 'AGENTS.md has been filled in (octo-ai-context)'],
+    [!/octo:needs-context/.test(readText(path.join(root, 'AGENTS.md'))), 'AGENTS.md has been filled in (optional: the agent does a quick map on the first task, or run /octo-context)', true],
   ];
   if (config.targets?.includes('claude-code')) checks.push([/octo:begin/.test(readText(path.join(root, 'CLAUDE.md'))), 'CLAUDE.md has the octo block']);
   if (config.targets?.includes('copilot')) checks.push([/octo:begin/.test(readText(path.join(root, '.github/copilot-instructions.md'))), 'copilot-instructions.md has the octo block']);
-  for (const [ok, label] of checks) console.log(`${ok ? '✓' : '✗'} ${label}`);
-  return checks.every(([ok]) => ok) ? 0 : 1;
+  checks.push(versionCheck(root));
+  if (config.autonomy?.pullRequest) checks.push(pullRequestCheck(root));
+  // Optional items never fail the doctor: they're shown as recommendations (○), not errors.
+  for (const [ok, label, optional] of checks) console.log(`${ok ? '✓' : optional ? '○' : '✗'} ${label}`);
+  return checks.every(([ok, , optional]) => ok || optional) ? 0 : 1;
+}
+
+const WINDOWS = process.platform === 'win32';
+const quiet = (cmd, args, timeout = 10000) => spawnSync(cmd, args, { encoding: 'utf8', timeout, shell: WINDOWS, stdio: ['ignore', 'pipe', 'pipe'] });
+const newer = (a, b) => {
+  const [x, y] = [a, b].map((v) => v.split('.').map(Number));
+  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
+  return false;
+};
+
+// Is the repo synced with the newest Octo? (installed = manifest; latest = npm, or this CLI when offline)
+function versionCheck(root) {
+  const manifest = JSON.parse(readText(path.join(root, '.octo/manifest.json')) || '{}');
+  const installed = manifest.octo ?? '0.2.0 or older';
+  const npm = process.env.OCTO_OFFLINE ? { status: 1 } : quiet('npm', ['view', '@luizguitm/octo', 'version']);
+  const latest = [packageVersion(), npm.status === 0 ? npm.stdout.trim() : null].filter(Boolean).reduce((a, b) => (newer(b, a) ? b : a));
+  const upToDate = manifest.octo && !newer(latest, manifest.octo);
+  return [upToDate, upToDate
+    ? `Octo ${installed} is the latest${npm.status === 0 ? '' : ' (npm not reachable; compared with this CLI)'}`
+    : `Octo update available: ${installed} → ${latest}. Run: npx -y @luizguitm/octo@latest sync`];
+}
+
+// The policy opens PRs: is the provider's CLI installed and signed in?
+function pullRequestCheck(root) {
+  const remote = quiet('git', ['-C', root, 'remote', 'get-url', 'origin']);
+  const url = remote.status === 0 ? remote.stdout.trim() : '';
+  if (/github\.com/.test(url)) {
+    const auth = quiet('gh', ['auth', 'status']);
+    return [auth.status === 0, auth.status === 0 ? 'pull requests: gh is signed in (GitHub)'
+      : 'pull requests (optional): with the gh CLI signed in, PRs open automatically (https://cli.github.com, then gh auth login). Without it, the agent gives a one-click PR link', true];
+  }
+  if (/dev\.azure\.com|visualstudio\.com/.test(url)) {
+    const account = quiet('az', ['account', 'show']);
+    const extension = quiet('az', ['extension', 'show', '--name', 'azure-devops']);
+    const ok = (account.status === 0 || Boolean(process.env.AZURE_DEVOPS_EXT_PAT)) && extension.status === 0;
+    return [ok, ok ? 'pull requests: az + azure-devops extension ready (Azure DevOps)'
+      : 'pull requests (optional): with the az CLI (https://aka.ms/azure-cli, az extension add --name azure-devops, az login) PRs open automatically. Without it, the agent uses the Azure DevOps MCP or a one-click PR link', true];
+  }
+  return [false, `pull requests: origin ${url ? `"${url}" is not GitHub or Azure DevOps` : 'is not set'}; PRs can't be opened automatically`];
 }
 
 function readText(file) {

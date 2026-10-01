@@ -7,10 +7,14 @@ metadata:
 
 # Autonomous finish
 
-Octo aims for Devin-style closure: the task ends **committed**, not "ready for you to commit". The
-policy values (commit / push / PR / protected branches / branch prefix) are in the instructions block.
+Octo aims for Devin-style closure: the task ends with a **pull request** (draft by default), not with
+"ready for you to commit". The policy values (commit / push / PR / protected branches / branch pattern) are in
+the instructions block. Run this for every task that changed code, including bug fixes and small changes;
+the only valid endings are a PR link, or the exact manual commands when the PR can't be opened (and why).
 
 ## Order of operations
+0. Set `phase: finish` in the session file. (On Claude Code a Stop hook then keeps you from ending with
+   unpushed commits; everywhere else, it's how the next session knows you were finishing.)
 1. **verification-before-completion**, as written: fresh evidence, all green. If anything is red, stop
    and report. Don't commit red work unless your partner says so.
 2. **Definition of Done**: when there's a spec/plan, `octo-definition-of-done` must produce a DoD document
@@ -44,8 +48,12 @@ policy values (commit / push / PR / protected branches / branch prefix) are in t
      decisions from the session), then
      `node .claude/skills/octo-autonomous-finish/scripts/open-pr.mjs --title "<commit summary>" --body-file <file> [--draft]`
      (`--draft` when the policy says draft). It pushes and opens the PR on GitHub (`gh`) or Azure DevOps (`az`),
-     detected from `origin`, and prints the URL. If it exits 1 (CLI missing, not authenticated, unknown host),
-     report its output and the manual commands; the branch stays committed. Don't retry blindly.
+     detected from `origin`, and prints the URL. When the CLI is missing or not signed in, it still pushes and
+     prints "PR not created automatically" plus a **one-click PR link**. Then, in this order:
+     1. If an MCP server for the provider is available (`azure-devops` → `octo-mcp-azure-devops`, or a GitHub
+        MCP), create the draft PR with it and report the PR URL.
+     2. Otherwise give the user the one-click link: "clique para abrir o PR já preenchido". That's a valid ending.
+     Exit 1 only means the push itself failed: report its output and the manual commands. Don't retry blindly.
    - Only push enabled → `node .claude/skills/octo-autonomous-finish/scripts/open-pr.mjs --push-only` and report it.
      Never run `git push` directly: the guardrails only pre-approve the script, which can't force-push.
    - Disabled → present superpowers' options. The work is already committed, so "keep the branch" is the

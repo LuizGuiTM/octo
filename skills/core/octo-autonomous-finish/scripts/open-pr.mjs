@@ -54,6 +54,17 @@ export function prCommand(remote, { branch, base, title, bodyFile, draft }) {
   return null;
 }
 
+// A browser link to the provider's "create pull request" page, pre-filled with the branches. Needs no CLI:
+// the fallback when gh/az are missing or not signed in (one click for the user).
+export function prLink(remote, { branch, base }) {
+  const e = encodeURIComponent;
+  if (remote.provider === 'github') return `https://github.com/${remote.owner}/${remote.repo}/compare/${e(base)}...${e(branch)}?expand=1`;
+  if (remote.provider === 'azure-devops') {
+    return `${remote.org}/${e(remote.project)}/_git/${e(remote.repo)}/pullrequestcreate?sourceRef=${e(branch)}&targetRef=${e(base)}`;
+  }
+  return null;
+}
+
 function protectedBranches() {
   try {
     const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
@@ -106,24 +117,33 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[\\/]/).p
     process.exit(0);
   }
 
-  if (pr && !has(pr[0])) {
-    console.log(`"${pr[0]}" is not installed: ${pr[0] === 'gh' ? 'https://cli.github.com' : 'https://aka.ms/azure-cli, then: az extension add --name azure-devops'}`);
-    manual();
-    process.exit(1);
-  }
+  const firstLine = (err) => String(err.stderr || err.message).trim().split(/\r?\n/).slice(0, 3).join(' | ');
   try {
     run(...push);
     console.log(`pushed: origin/${branch}`);
-    if (!pr) process.exit(0);
+  } catch (err) {
+    console.log(`push failed: ${firstLine(err)}`);
+    manual();
+    process.exit(1);
+  }
+  if (!pr) process.exit(0);
+
+  // Without the provider CLI (or when it isn't signed in), hand over a one-click link instead of failing.
+  const link = prLink(remote, { branch, base });
+  const fallback = (reason) => {
+    console.log(`PR not created automatically (${reason}).`);
+    console.log(`PR link (one click, already filled in): ${link}`);
+    console.log('Tip: with the Azure DevOps or GitHub MCP server enabled, the agent can create it through the MCP tool instead.');
+    process.exit(0);
+  };
+  if (!has(pr[0])) fallback(`${pr[0]} CLI not installed`);
+  try {
     const out = run(...pr);
     const url = remote.provider === 'github'
       ? out.split(/\r?\n/).pop()
       : `${remote.org}/${encodeURIComponent(remote.project)}/_git/${encodeURIComponent(remote.repo)}/pullrequest/${JSON.parse(out).pullRequestId}`;
     console.log(`PR opened: ${url}`);
   } catch (err) {
-    console.log(`failed: ${String(err.stderr || err.message).trim().split(/\r?\n/).slice(0, 3).join(' | ')}`);
-    if (pr) console.log(pr[0] === 'gh' ? 'Check: gh auth status' : 'Check: az login (or AZURE_DEVOPS_EXT_PAT) and az extension add --name azure-devops');
-    manual();
-    process.exit(1);
+    fallback(`${pr[0]} failed: ${firstLine(err)}`);
   }
 }

@@ -1,12 +1,12 @@
 # AGENTS.md
 
-<!-- octo:needs-context — scaffolded by octo. Run the octo-ai-context skill to fill this in, then delete this line. -->
+<!-- octo:needs-context — scaffolded by octo. The octo-ai-context skill fills this in quickly (≈10 min), then deletes this line. -->
 
 Primary context for AI agents working in this repository. Keep it short, factual and current;
-move depth into `docs/ai/` and link it from here.
+depth lives in `docs/ai/<area>.md`, written only when a task touches that area.
 
 ## Project
-<!-- What this system does, for whom, and its main boundaries. 3-5 lines. -->
+<!-- What this system does, for whom, and its main boundaries. 3 lines. -->
 
 ## Stack
 <!-- Languages, frameworks, runtime versions, key libraries. -->
@@ -15,27 +15,23 @@ move depth into `docs/ai/` and link it from here.
 | Task | Command |
 |---|---|
 | Install | |
-| Dev server | |
-| Test (all) | |
+| Run / deploy to a dev org or server | |
 | Test (single) | |
+| Test (all) | |
 | Lint / format | |
-| Build | |
 
-## Architecture map
-<!-- Top-level directories and what lives in each. Entry points. Data flow in one paragraph. -->
+## Layout
+| Area | What lives there |
+|---|---|
 
 ## Conventions
-<!-- Naming, error handling, logging, patterns to follow, patterns to avoid. -->
-
-## Testing
-<!-- Test layout, frameworks, fixtures, how to run against real services. -->
+<!-- Naming, error handling, patterns to follow and to avoid, seen in representative files. -->
 
 ## Gotchas
 <!-- Things that surprised a previous agent. Every entry should save someone an hour. -->
 
-## AI docs index
-- `docs/ai/architecture.md`: components and how they talk
-- `docs/ai/decisions/`: ADRs, one decision per file
-- `docs/ai/glossary.md`: domain terms
-- `docs/superpowers/specs/`: approved designs (superpowers brainstorming)
-- `docs/superpowers/plans/`: implementation plans (superpowers writing-plans)
+## Documented areas
+<!-- docs/ai/<area>.md pages, one line each. -->
+
+## Not yet documented
+<!-- Big areas nobody has needed yet, with a size hint. octo-ai-context documents one when a task touches it. -->

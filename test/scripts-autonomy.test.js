@@ -149,7 +149,7 @@ test('prefs CLI creates the global file under OCTO_HOME and the session script r
     assert.ok(fs.existsSync(prefs), 'init creates the global preferences');
     const initial = fs.readFileSync(prefs, 'utf8');
     assert.match(initial, /Claude Code: deep = opus · standard = sonnet · fast = haiku/, 'pre-filled from the config');
-    assert.match(initial, /Copilot: deep = Claude Opus 4\.5 → GPT-5\.2/);
+    assert.match(initial, /Copilot: deep = Claude Opus 4.5 · standard = Claude Sonnet 4.5/);
     assert.match(initial, /Nível: balanced/);
     assert.doesNotMatch(initial, /\{\{|Como me chamar|Papel|Experiência/, 'only models, communication and autonomy');
     fs.writeFileSync(prefs, initial.replace(/^- Respostas:.*$/m, '- Respostas: detalhadas').replace(/^- Sempre perguntar antes de:.*$/m, '- Sempre perguntar antes de:'));

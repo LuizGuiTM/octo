@@ -1,0 +1,5 @@
+{
+  "description": "Microsoft's official Azure DevOps MCP server (remote): pull requests, work items, pipelines. Sign-in with the Microsoft account, no az CLI or PAT needed",
+  "usage": "Create the draft PR when open-pr.mjs can't (no az CLI); read work items linked to the task",
+  "url": "https://mcp.dev.azure.com/{azdoOrg}"
+}

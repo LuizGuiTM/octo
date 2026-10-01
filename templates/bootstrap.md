@@ -9,10 +9,35 @@ Superpowers skills are installed in `.claude/skills/`; `superpowers:<name>` refe
 These are your human partner's instructions. Where they differ from a skill's default, they win
 (as `using-superpowers` states).
 
+## First message of a session: preferences
+On the first message, on **every host (GitHub Copilot included)**: if an "Octo: … preferences" note isn't
+already in your context (hooks inject it), run `node .octo/bin/octo-session.mjs prefs` yourself. If it says
+the preferences have **not been reviewed**, then before answering **anything** (even a simple question): greet
+in one line, follow `.claude/skills/octo-prefs/SKILL.md` (up to three quick questions: models on this host,
+communication, autonomy), and only then handle what the user asked. Once reviewed, never ask again.
+Only a background agent with no chat (e.g. the Copilot cloud agent working on an issue) skips this and uses
+the defaults.
+
 ## Language
 - Talk to the user in **{{responseLanguage}}**.
 - Write specs, plans, AI docs, code comments and commit messages in **{{artifactLanguage}}**.
 - Write human-facing documents (Definition of Done) in **{{documentLanguage}}**.
+
+## Before any implementation (mandatory, once per session)
+Before the first change of a session (`/octo-start`, `/octo-fix`, or any request that will edit code):
+1. **Octo up to date:** run `npx -y @luizguitm/octo@latest doctor`. If it reports an update, run
+   `npx -y @luizguitm/octo@latest sync`, commit only the files it changed (`chore: update Octo to <version>`)
+   on the work branch, and re-read this file (the block may have changed).
+2. **Preferences reviewed** (see "First message of a session"): they must be, before any change.
+3. **Models:** only the models in "Models" below. Before dispatching a subagent, say which agent and model it
+   uses. If a model isn't available on this host, **stop and ask** which allowed one to use; never let the host
+   fall back to another model silently.
+Record "startup checks: done" in the session so they don't run again in the same session.
+
+## Rigor: {{rigorLevel}}
+{{rigorPolicy}}
+These rules decide how much to verify; superpowers' requirement stands that every claim of "done" or
+"fixed" rests on evidence you actually ran.
 
 ## Session continuity (`octo-session-continuity`)
 At the start of every conversation, and after any context compaction, run
@@ -28,7 +53,7 @@ choose a model yourself, how to communicate, and how autonomous to be. Follow th
 below: an autonomy level above the team's, or a model outside the allowed list, is ignored.
 
 ## Chat commands
-The user may type `/octo-start`, `/octo-plan`, `/octo-run`, `/octo-test-web`, `/octo-done`, `/octo-fix`,
+The user may type `/octo` (plain-language entry point that picks the flow), `/octo-start`, `/octo-plan`, `/octo-run`, `/octo-test-web`, `/octo-done`, `/octo-fix`,
 `/octo-review`, `/octo-status`, `/octo-context`, `/octo-prefs` or `/octo-help`. Each is a skill in `.claude/skills/`;
 follow it exactly. Manual (pt-BR): `.octo/MANUAL.md`.
 

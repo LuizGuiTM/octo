@@ -11,6 +11,10 @@ const UPSTREAM_LOCK = path.join(PACKAGE_ROOT, 'upstream', 'superpowers.lock.json
 
 export const CORE_DOMAIN = 'core';
 
+export function packageVersion() {
+  return JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')).version;
+}
+
 function readSkillDir(dir, extra = {}) {
   const { data } = parseFrontmatter(fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8'));
   const name = path.basename(dir);

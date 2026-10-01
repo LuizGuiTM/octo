@@ -50,10 +50,13 @@ Per wave, instead of one task at a time:
    maximum (split wider waves into batches).
 3. Each implementer ends with **exactly one commit** containing only its owned files and reports its SHA with
    superpowers' statuses (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT).
-4. Review each task on its own commit: `review-package <plan> <sha>^ <sha>`. Reviews of the same wave can run
-   in parallel. Fix rounds follow SDD (a fix is a new commit touching the same owned files).
-5. **Integration gate** after the wave: full test suite and lint. Parallel tasks can conflict in ways no single
-   review sees; a red gate goes to systematic-debugging before the next wave.
+4. Reviews follow the **Rigor** section of the instructions block. `strict`: review each task on its own
+   commit (`review-package <plan> <sha>^ <sha>`), in parallel within the wave. `proportional`: only `deep`-tier
+   tasks get a per-task review; everything else is covered by one review of the whole diff at the end.
+   Fix rounds follow SDD (a fix is a new commit touching the same owned files).
+5. **Integration gate** after the wave: `strict` runs the full suite and lint; `proportional` runs the tests of
+   the files the wave touched (the full suite runs once, before the final commit). A red gate goes to
+   systematic-debugging before the next wave.
 6. A BLOCKED report that needs another task's file: move that work to the next wave.
 
 ## Other parallel moments

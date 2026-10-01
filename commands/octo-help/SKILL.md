@@ -9,8 +9,13 @@ disable-model-invocation: true
 
 Answer in the user's language, briefly. For a specific command or topic, explain only that.
 
+**Start here:** `/octo <o que você precisa>` is all most people need. It understands the request (new feature,
+bug, continue, finish, question) and runs the right flow, ending in a PR. The commands below are the same steps,
+for people who want to drive each phase.
+
 | Command | When |
 |---|---|
+| `/octo <request>` | Anything, in plain language: the agent picks the flow |
 | `/octo-start <request>` | Start new work: branch, session, context, brainstorm → approved spec |
 | `/octo-plan` | Spec → plan with parallel waves and acceptance scenarios |
 | `/octo-run` | Execute the plan wave by wave with subagents |

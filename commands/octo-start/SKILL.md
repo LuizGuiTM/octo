@@ -10,7 +10,10 @@ disable-model-invocation: true
 The user wants to start new work. Their request is the text after the command; if it's empty, ask for it
 in one question.
 
-1. **Context**: read `AGENTS.md`. If it has `octo:needs-context`, run `octo-ai-context` first (tell the user).
+0. **Startup checks** (instructions block, "Before any implementation"): Octo up to date, preferences reviewed,
+   models confirmed. Skip if the session already says "startup checks: done".
+1. **Context**: read `AGENTS.md`. If it has `octo:needs-context`, run `octo-ai-context` in **quick bootstrap**
+   mode (≈10 min; tell the user). If the request touches an area listed as "Not yet documented", run its area mode.
 2. **Branch**: if on a protected branch, create a work branch named with the pattern in the instructions
    block's Git section (`{type}` = `feature` for new work), e.g. `feature/<short-topic>-octo`.
 3. **Session**: `node .octo/bin/octo-session.mjs new "<topic>"`; if one is active for this branch, resume it instead.

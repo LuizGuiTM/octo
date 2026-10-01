@@ -84,7 +84,7 @@ Then:
 ## 5. Report and loop
 - Write each scenario result and screenshot link into the DoD document (`octo-definition-of-done`), then
   put the results table in your summary.
-- A FAIL is a bug: go to systematic-debugging, fix with test-driven-development, then re-run **all** scenarios (new screenshots; keep the fail ones for the history).
+- A FAIL is a bug: go to systematic-debugging, fix with test-driven-development, then re-run the failed scenario and the ones the fix could affect (new screenshots; keep the fail ones for the history). Re-run everything only under `strict` rigor.
 - Stop the dev server you started when done.
 - If a scenario is valuable long-term, suggest turning it into a committed e2e test.
 

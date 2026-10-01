@@ -1,4 +1,5 @@
 # Minhas preferências (Octo)
+<!-- octo:unreviewed (o /octo-prefs remove esta linha depois da revisão) -->
 
 <!--
 Como VOCÊ quer que os agentes trabalhem. Já vem preenchido com o padrão do time; mude o que quiser.
@@ -15,6 +16,7 @@ As regras do time (octo.config.json) e os guardrails sempre prevalecem. Para aju
 ## Comunicação
 - Idioma: {{responseLanguage}}
 - Respostas: curtas e diretas
+- Linguagem: técnica (troque para "simples, sem jargão" se você não é dev)
 - Atualizações em tarefas longas: a cada fase
 
 ## Autonomia
