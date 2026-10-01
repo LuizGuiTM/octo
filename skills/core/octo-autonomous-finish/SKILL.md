@@ -26,7 +26,8 @@ the only valid endings are a PR link, or the exact manual commands when the PR c
 5. **Commit** (when the policy enables it, without asking):
    - On a protected branch? First create a work branch with the pattern from the instructions block's Git
      section (e.g. `feature/<topic>-octo`). Never commit to a protected branch.
-   - Stage explicit paths, including the DoD folder (document + screenshots). Don't use a blind `git add -A`.
+   - Close the session first (`octo-session-continuity`, "End"). Stage explicit paths, including the DoD folder
+     (document + screenshots) and, when sessions are committed, the session file. Don't use a blind `git add -A`.
    - If the diff touches configuration or anything credential-like, apply the catalog skill
      `security/secrets/secret-scanning` before staging.
    - Conventional Commits in the artifact language (types and rules in the catalog skill

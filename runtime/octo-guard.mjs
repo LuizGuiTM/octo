@@ -106,7 +106,7 @@ export function checkStop(input, cfg = config()) {
   const sessionsDir = path.join(ROOT, '.octo', 'sessions');
   const session = fs.existsSync(sessionsDir) && fs.readdirSync(sessionsDir)
     .map((f) => fs.readFileSync(path.join(sessionsDir, f), 'utf8'))
-    .find((t) => new RegExp(`^branch: ${branch.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}$`, 'm').test(t) && /^status: active$/m.test(t));
+    .find((t) => new RegExp(`^branch: ${branch.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}$`, 'm').test(t) && !/^status: paused$/m.test(t)); // closed sessions count: they're closed before the final push
   if (!session || !/^phase: (finish|done)$/m.test(session)) return null;
   const upstream = git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}');
   const ahead = upstream ? Number(git('rev-list', '--count', `${upstream}..HEAD`) ?? 0) : 1;

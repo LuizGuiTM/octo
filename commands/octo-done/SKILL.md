@@ -13,7 +13,8 @@ Follow `octo-autonomous-finish` in order:
    check it: `node .claude/skills/octo-definition-of-done/scripts/check-dod.mjs <DoD.md> --plan <session plan>`
    (omit `--plan` when there's no plan). Stop if it fails.
 3. `octo-ai-context` (record mode).
-4. Hygiene, stage explicit paths, `node .claude/skills/octo-autonomous-finish/scripts/pre-commit-check.mjs`,
+4. Close the session (`octo-session-continuity`, "End"), hygiene, stage explicit paths (the session file too
+   when sessions are committed), `node .claude/skills/octo-autonomous-finish/scripts/pre-commit-check.mjs`,
    then the commit.
-5. Push / pull request per the policy (`open-pr.mjs`), or superpowers' finishing options; close the session.
+5. Push / pull request per the policy (`open-pr.mjs`), or superpowers' finishing options.
 6. Summary to the user with the DoD link, the commit hash and the PR link if any.

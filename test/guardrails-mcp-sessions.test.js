@@ -122,7 +122,8 @@ test('session script: new, status, hook and close', () => {
 
     run('close', 'formulario-de-pedidos');
     assert.match(run('status'), /no active session/);
-    assert.match(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), /^\.octo\/sessions\/$/m);
+    assert.doesNotMatch(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), /^\.octo\/sessions\/$/m, 'sessions are committed by default');
+    assert.match(fs.readFileSync(path.join(root, file), 'utf8'), /^## Request$/m);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

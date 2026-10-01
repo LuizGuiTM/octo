@@ -18,8 +18,10 @@ instead of duplicating it.
    continue from **Next step**. If an SDD ledger is listed, resume through subagent-driven-development
    as it prescribes.
 3. **Only sessions on other branches** → mention them in one line; don't touch them unless asked.
-4. **None**, and the request is non-trivial (anything that will go through brainstorming) → create one
-   right after the first exchange: `node .octo/bin/octo-session.mjs new "<topic>"`.
+4. **None**, and the request will change code (a feature, a change, a bug fix) → create one right after the
+   first exchange: `node .octo/bin/octo-session.mjs new "<topic>"`, and paste the user's request **verbatim**
+   into **Request** (the exact words, error messages and examples included; never a paraphrase). Later
+   additions or changes from the user go below it, dated. Questions that change nothing need no session.
 
 ## Checkpoints: update the file (edit it directly)
 Update the frontmatter (`phase`, `spec`, `plan`, `sdd-workspace`, `dod`, `updated`) and the sections:
@@ -37,8 +39,11 @@ Append a one-line timestamped entry to **Log** at each checkpoint. Keep the file
 summarize old log lines rather than letting them grow.
 
 ## End
-In `octo-autonomous-finish`, after the commit: fill `dod:`, write the final state, then
-`node .octo/bin/octo-session.mjs close <file>`.
+In `octo-autonomous-finish`, **before** the final commit: fill `dod:`, set `phase: done`, write the final state,
+then `node .octo/bin/octo-session.mjs close <file>`. When sessions are committed (instructions block, "Session
+continuity"), stage the session file in that commit: it's the request's record (verbatim request, decisions,
+log) next to the spec, plan and DoD. If the user asks for changes later (e.g. PR review), set `status: active`
+again, add the new request under **Request**, dated, and close it again before the next commit.
 
 ## Rules
 - One active session per branch. Different tasks → different branches.

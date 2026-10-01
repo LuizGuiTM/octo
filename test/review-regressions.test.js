@@ -82,6 +82,7 @@ test('lines Octo added to .gitignore are removed when no longer wanted (sessions
   try {
     write(root, '.gitignore', 'node_modules/\n');
     const config = defaultConfig({ domains: [] });
+    config.sessions.commit = false;
     sync(root, config);
     assert.match(read(root, '.gitignore'), /^\.octo\/sessions\/$/m);
     config.sessions.commit = true;
@@ -100,6 +101,7 @@ test('a line the user already had is never removed by Octo', () => {
   try {
     write(root, '.gitignore', '.octo/sessions/\n');
     const config = defaultConfig({ domains: [] });
+    config.sessions.commit = false;
     sync(root, config);
     config.sessions.commit = true;
     sync(root, config);

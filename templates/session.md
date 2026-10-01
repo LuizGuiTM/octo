@@ -13,6 +13,9 @@ dod:
 
 # Session: {{topic}}
 
+## Request
+<!-- The user's request, VERBATIM (copy it, never paraphrase), with later additions dated below it. -->
+
 ## Goal
 <!-- What this work delivers, in 1-3 lines. -->
 

@@ -121,8 +121,9 @@ export function defaultConfig({ domains = DEFAULT_DOMAINS, targets = TARGETS } =
       extraCriteria: [],
     },
     sessions: {
-      // false: session files stay local (git-ignored); true: they travel with the feature branch.
-      commit: false,
+      // true: each request's session (verbatim request, decisions, log) travels with its branch and PR;
+      // false: session files stay local (git-ignored).
+      commit: true,
     },
     guardrails: {
       commands: {

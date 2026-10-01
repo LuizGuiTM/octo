@@ -190,7 +190,7 @@ Um documento pessoal curto diz aos agentes como **você** quer trabalhar, em tr�
 | `.claude/skills/` | superpowers + skills do Octo + comandos `/octo-*` | Não (gerado) |
 | `.claude/agents/`, `.github/agents/` | Subagentes `octo-*` para cada host | Não (gerado) |
 | `.octo/catalog/<domínio>/<tecnologia>/` | Skills e instructions sob demanda + `INDEX.md` | Não (gerado) |
-| `.octo/sessions/` | Estado de cada tarefa | O agente mantém; local |
+| `.octo/sessions/` | Pedido original e estado de cada tarefa | O agente mantém; vai no PR |
 | `.octo/MANUAL.md` | Este manual | Não |
 | `docs/superpowers/specs`, `plans`, `dod` | Specs, planos e Definition of Done | O agente cria; revise |
 | `.mcp.json`, `.vscode/mcp.json`, `.claude/settings.json`, `.vscode/settings.json` | Seus arquivos + entradas do Octo | Sim; o Octo só mexe nas entradas dele |
@@ -236,7 +236,7 @@ Lista atual completa: `npx @luizguitm/octo skills list --all`. Parte do catálog
 | `autonomy` | `level`, `approvals.spec/plan`, `commit`, `push`, `pullRequest`, `draftPullRequest`, `protectedBranches`, `branchPattern` (padrão `{type}/{topic}-octo`), `askWhen`. Mais fácil: `octo autonomy <nível>` | nível `balanced` |
 | `webTesting` | `enabled`, `baseUrl`, `startCommand`, `tools` por host | Chrome no Claude, Playwright no Copilot |
 | `dod` | `dir`, `extraCriteria` (critérios extras do time) | `docs/superpowers/dod` |
-| `sessions.commit` | Sessões vão para o git? | `false` |
+| `sessions.commit` | Sessões (pedido original, decisões) vão para o git com o PR? | `true` |
 | `guardrails` | Comandos bloqueados/com confirmação/liberados, arquivos protegidos, `maxFixRounds` | ver arquivo |
 | `mcp` | `enable` (registro do Octo) e `servers` (MCPs do repositório) | vazio |
 | `imports.nativeInstructions` | Instructions do awesome-copilot nativas no Copilot | `[]` |
@@ -252,8 +252,19 @@ passo concreto. O agente atualiza a cada marco (spec aprovada, onda concluída, 
 - Claude Code: um hook injeta o estado no início da sessão, no `resume` e depois de compactar o contexto.
 - Copilot: as instruções mandam rodar `node .octo/bin/octo-session.mjs status` no início.
 - Uma sessão ativa por branch. Tarefas diferentes → branches diferentes.
-- Por padrão ficam só na sua máquina (`sessions.commit: false`). Com `true`, acompanham a branch (útil
-  para passar o trabalho a outra pessoa).
+- A seção **Pedido** guarda o que você pediu, **palavra por palavra** (e os acréscimos depois, com data).
+- Por padrão a sessão vai no commit final, junto com a spec, o plano e o DoD (`sessions.commit: true`). Assim
+  cada demanda fica registrada no repositório e no PR: pedido original, decisões e histórico. Com `false`, as
+  sessões ficam só na sua máquina.
+
+Onde fica cada coisa de uma demanda:
+
+| O quê | Onde |
+|---|---|
+| Pedido original, decisões, histórico | `.octo/sessions/AAAA-MM-DD-<tópico>.md` |
+| Spec / design | `docs/superpowers/specs/AAAA-MM-DD-<tópico>-design.md` |
+| Plano | `docs/superpowers/plans/AAAA-MM-DD-<tópico>.md` |
+| Definition of Done (com prints) | `docs/superpowers/dod/AAAA-MM-DD-<tópico>/DoD.md` |
 
 ## 9. Teste web e Definition of Done
 
