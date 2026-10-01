@@ -64,7 +64,8 @@ ou nada extra no Copilot (o Playwright MCP é baixado sozinho).
 4. **Abra o repositório** no Claude Code (`claude --chrome` se for testar UI) ou no VS Code com Copilot.
 5. **Prepare o contexto** (opcional): `/octo-context` faz um mapa **rápido** do repositório (cerca de 10 minutos,
    mesmo num monorepo grande). As áreas são detalhadas só quando uma tarefa passa por elas. Se você pular,
-   o agente faz isso sozinho na primeira tarefa.
+   o agente faz isso sozinho na primeira tarefa. Use o modelo **standard** no chat (Sonnet; no Copilot,
+   "Claude Sonnet 4.5" no seletor). Veja [qual modelo escolher](#qual-modelo-escolher-no-chat).
 6. **Preferências**: na **primeira mensagem** (qualquer uma, até uma pergunta), enquanto você não revisou as
    preferências, o agente cumprimenta e faz até três perguntas rápidas (modelos disponíveis no Copilot, forma
    de comunicação, autonomia). "Manter tudo" já conta como revisão. Depois ele responde o que você pediu e não
@@ -348,8 +349,23 @@ O superpowers pede "modelo barato", "padrão" ou "mais capaz". O Octo mapeia par
 | `standard` | `octo-worker-standard`, `octo-web-tester`, `octo-doc-writer` | a maioria das tarefas | `sonnet`, esforço médio |
 | `deep` | `octo-worker-deep` | desenho, revisão final, debugging difícil | `opus`, esforço alto |
 
-No Copilot, cada nível pode ter uma lista de modelos em ordem de preferência. Um modelo fora de `allowed`
-faz o `sync` falhar.
+Um modelo fora de `allowed` faz o `sync` falhar.
+
+**Copilot:** enquanto você não confirma os nomes dos modelos em `/octo-prefs` (`models.copilot.pin: true`), os
+subagentes usam **o modelo escolhido no seletor do chat**. Por isso a escolha do seletor importa.
+
+### Qual modelo escolher no chat
+
+| Comando / momento | Nível | Claude Code | Copilot (seletor) | Por quê |
+|---|---|---|---|---|
+| `/octo-context` (mapa rápido do repositório) | `standard` | `sonnet` | Claude Sonnet 4.5 | Ler e resumir; os exploradores já rodam em `fast` |
+| `/octo`, `/octo-fix`, `/octo-run`, `/octo-done` | `standard` | `sonnet` | Claude Sonnet 4.5 | A maioria do trabalho |
+| `/octo-start` com mudança grande, `/octo-plan`, `/octo-review` | `deep` | `opus` | Claude Opus 4.5 | Desenho, plano e revisão final pedem mais raciocínio |
+| Bug difícil, que já resistiu a algumas tentativas | `deep` | `opus` | Claude Opus 4.5 | Debugging difícil |
+| `/octo-status`, `/octo-help`, `/octo-prefs` | `fast` | `haiku` | Claude Haiku 4.5 | Só leitura |
+
+Na dúvida, use **standard**. Num monorepo grande, `deep` no `/octo-context` deixa tudo mais lento sem ganho
+real: suba para `deep` só no modo de área, quando a arquitetura daquela parte for confusa.
 
 ## 12. MCPs customizados
 
