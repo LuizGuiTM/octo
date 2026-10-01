@@ -102,7 +102,8 @@ test('sync is idempotent, keeps user content, and removes stale files', () => {
     assert.ok(!exists(root, '.github/agents'), 'copilot agents removed');
     assert.ok(!exists(root, '.octo/catalog/web'), 'web domain removed');
     assert.ok(!exists(root, '.claude/skills/diagnosing-superpowers'), 'excluded upstream skill removed');
-    assert.doesNotMatch(read(root, '.github/copilot-instructions.md'), /octo:begin/);
+    assert.ok(!exists(root, '.github/copilot-instructions.md'), 'a file that only held the octo block goes away');
+    assert.match(read(root, 'CLAUDE.md'), /^# My project notes/, 'user content stays');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

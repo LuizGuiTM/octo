@@ -98,6 +98,12 @@
         }
       }
     },
+    "framework": {
+      "type": "object",
+      "properties": {
+        "commit": { "description": "true: Octo's generated files are versioned (the team and cloud agents get them). false: they're git-ignored; each developer runs `npx @luizguitm/octo sync` after cloning, and only octo.config.json and AGENTS.md are versioned.", "type": "boolean" }
+      }
+    },
     "sessions": {
       "type": "object",
       "properties": {

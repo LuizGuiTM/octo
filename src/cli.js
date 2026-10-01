@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import readline from 'node:readline';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,13 +10,17 @@ import {
 } from './config.js';
 import { renderPreferences, resolveSkills, sync } from './sync.js';
 import { detectAzureDevOpsOrg } from './mcp.js';
+import { teamSetup } from './setup.js';
 import { commandSkills, domainNames, packageVersion } from './sources.js';
 
 const HELP = `octo — company layer on top of superpowers, for Claude Code and GitHub Copilot
 
 Usage:
-  octo init [--targets claude-code,copilot] [--domains web,salesforce,python] [--force]
-      Create ${CONFIG_FILE} (domains auto-detected) and run sync.
+  octo init [--targets claude-code,copilot] [--domains web,salesforce,python] [--local] [--yes] [--force]
+      Create ${CONFIG_FILE} (domains auto-detected), ask the team questions (versioning, web testing, branch
+      names; --yes keeps the defaults) and run sync. --local: git-ignore the generated files.
+  octo setup
+      Ask the team questions again for an installed repo, then sync.
   octo sync
       Install superpowers + Octo skills, agents, instructions and catalog from ${CONFIG_FILE}.
   octo doctor
@@ -30,6 +35,9 @@ Usage:
       Create your personal preferences file (~/.octo/preferences.md, or .octo/preferences.local.md).
   octo prefs path
       Show where your preferences files are and whether they exist.
+  octo untrack
+      With framework.commit = false: stop versioning the Octo files git still tracks (git rm --cached;
+      the files stay on disk). Then commit.
   octo autonomy [supervised|balanced|full]
       Show or set the autonomy preset (approvals, commit, push, pull request, when to ask) and sync.
 
@@ -47,6 +55,8 @@ export async function main(argv) {
   switch (command) {
     case 'init':
       return init(root, flags);
+    case 'setup':
+      return setup(root);
     case 'sync':
       return runSync(root, loadConfig(root));
     case 'doctor':
@@ -64,6 +74,8 @@ export async function main(argv) {
       break;
     case 'autonomy':
       return setAutonomy(root, sub);
+    case 'untrack':
+      return untrack(root);
     case undefined:
     case 'help':
     case '--help':
@@ -74,7 +86,7 @@ export async function main(argv) {
   return 1;
 }
 
-const BOOLEAN_FLAGS = ['force', 'all', 'local'];
+const BOOLEAN_FLAGS = ['force', 'all', 'local', 'yes'];
 
 function parseArgs(argv) {
   const positional = [];
@@ -98,7 +110,7 @@ function csv(value) {
   return typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : undefined;
 }
 
-function init(root, flags) {
+async function init(root, flags) {
   if (fs.existsSync(configPath(root)) && !flags.force) {
     console.log(`${CONFIG_FILE} already exists; running sync (use --force to recreate it).`);
     return runSync(root, loadConfig(root));
@@ -106,6 +118,8 @@ function init(root, flags) {
   const domains = csv(flags.domains) ?? detectDomains(root);
   const targets = csv(flags.targets) ?? TARGETS;
   const config = defaultConfig({ domains, targets });
+  if (flags.local) config.framework.commit = false; // git-ignore the generated files
+  if (process.stdin.isTTY && !flags.yes) await withPrompt((ask) => teamSetup(config, ask));
   // Azure DevOps repos get Microsoft's MCP server: PRs and work items with the Microsoft sign-in, no az CLI.
   if (detectAzureDevOpsOrg(root)) config.mcp.enable = [...new Set([...config.mcp.enable, 'azure-devops'])];
   const errors = validateConfig(config);
@@ -122,6 +136,41 @@ function init(root, flags) {
   return 0;
 }
 
+async function setup(root) {
+  const config = loadConfig(root);
+  await withPrompt((ask) => teamSetup(config, ask));
+  const errors = validateConfig(config);
+  if (errors.length) throw new Error(errors.join('\n'));
+  writeConfig(root, config);
+  console.log(`Updated ${CONFIG_FILE}.`);
+  return runSync(root, config);
+}
+
+async function withPrompt(fn) {
+  // Buffer lines ourselves: rl.question drops answers that arrive early (piped input). End of input = ENTER.
+  const rl = readline.createInterface({ input: process.stdin });
+  const lines = [];
+  const waiting = [];
+  let closed = false;
+  rl.on('line', (line) => (waiting.length ? waiting.shift()(line) : lines.push(line)));
+  rl.on('close', () => {
+    closed = true;
+    while (waiting.length) waiting.shift()('');
+  });
+  const ask = (question) => {
+    process.stdout.write(question);
+    if (lines.length) return Promise.resolve(lines.shift());
+    if (closed) return Promise.resolve('');
+    return new Promise((resolve) => waiting.push(resolve));
+  };
+  try {
+    console.log('A few team settings (ENTER keeps the suggested value):');
+    return await fn(ask);
+  } finally {
+    rl.close();
+  }
+}
+
 function runSync(root, config) {
   const r = sync(root, config);
   console.log(`Synced ${r.written} files (${r.removed} stale removed).`);
@@ -133,6 +182,13 @@ function runSync(root, config) {
     console.log('  Run "octo config upgrade" to add them with their defaults.');
   }
   for (const conflict of r.conflicts) console.log(`  ! ${conflict}`);
+  if (r.skippedShared.length) {
+    console.log(`  ! Versioned files left without Octo's entries (framework.commit = false): ${r.skippedShared.join(', ')}.`);
+    console.log('    Copilot terminal auto-approval and/or MCP servers from these files are off; add them to your VS Code user settings if you need them.');
+  }
+  if (r.trackedOwned.length) {
+    console.log(`  ! ${r.trackedOwned.length} Octo files are still versioned in git. Run "octo untrack", then commit (chore: stop versioning Octo files).`);
+  }
   if (r.createdAgentsMd) {
     console.log('  AGENTS.md scaffolded. Next: ask your agent to run the octo-ai-context skill to fill it in.');
   }
@@ -154,8 +210,13 @@ function doctor(root) {
     [fs.existsSync(path.join(root, 'AGENTS.md')), 'AGENTS.md exists'],
     [!/octo:needs-context/.test(readText(path.join(root, 'AGENTS.md'))), 'AGENTS.md has been filled in (optional: the agent does a quick map on the first task, or run /octo-context)', true],
   ];
-  if (config.targets?.includes('claude-code')) checks.push([/octo:begin/.test(readText(path.join(root, 'CLAUDE.md'))), 'CLAUDE.md has the octo block']);
-  if (config.targets?.includes('copilot')) checks.push([/octo:begin/.test(readText(path.join(root, '.github/copilot-instructions.md'))), 'copilot-instructions.md has the octo block']);
+  if (config.framework?.commit === false) {
+    if (config.targets?.includes('claude-code')) checks.push([fs.existsSync(path.join(root, '.claude/rules/octo.md')), 'Claude Code instructions (.claude/rules/octo.md, git-ignored)']);
+    if (config.targets?.includes('copilot')) checks.push([fs.existsSync(path.join(root, '.github/instructions/octo.instructions.md')), 'Copilot instructions (.github/instructions/octo.instructions.md, git-ignored)']);
+  } else {
+    if (config.targets?.includes('claude-code')) checks.push([/octo:begin/.test(readText(path.join(root, 'CLAUDE.md'))), 'CLAUDE.md has the octo block']);
+    if (config.targets?.includes('copilot')) checks.push([/octo:begin/.test(readText(path.join(root, '.github/copilot-instructions.md'))), 'copilot-instructions.md has the octo block']);
+  }
   checks.push(versionCheck(root));
   if (config.autonomy?.pullRequest) checks.push(pullRequestCheck(root));
   // Optional items never fail the doctor: they're shown as recommendations (○), not errors.
@@ -200,6 +261,30 @@ function pullRequestCheck(root) {
       : 'pull requests (optional): with the az CLI (https://aka.ms/azure-cli, az extension add --name azure-devops, az login) PRs open automatically. Without it, the agent uses the Azure DevOps MCP or a one-click PR link', true];
   }
   return [false, `pull requests: origin ${url ? `"${url}" is not GitHub or Azure DevOps` : 'is not set'}; PRs can't be opened automatically`];
+}
+
+function untrack(root) {
+  const config = loadConfig(root);
+  if (config.framework?.commit !== false) {
+    console.log('framework.commit is not false in ' + CONFIG_FILE + ': Octo files are meant to be versioned here. Nothing to do.');
+    return 1;
+  }
+  const manifest = JSON.parse(readText(path.join(root, '.octo/manifest.json')) || '{}');
+  const candidates = [...(manifest.files ?? []), ...(manifest.localShared ?? []), '.octo/manifest.json'].map((f) => f.split(path.sep).join('/'));
+  const listed = spawnSync('git', ['-C', root, 'ls-files', '-z', '--', ...new Set(candidates.map((f) => f.split('/')[0]))], { encoding: 'utf8' });
+  const tracked = new Set(listed.stdout.split('\0').filter(Boolean));
+  const files = candidates.filter((f) => tracked.has(f));
+  if (!files.length) {
+    console.log('No Octo files are versioned. Nothing to do.');
+    return 0;
+  }
+  const r = spawnSync('git', ['-C', root, 'rm', '--cached', '--quiet', '--pathspec-from-file=-'], { input: files.join('\n'), encoding: 'utf8' });
+  if (r.status !== 0) {
+    console.error(r.stderr);
+    return 1;
+  }
+  console.log(`Stopped versioning ${files.length} Octo files (they stay on disk). Commit: git commit -m "chore: stop versioning Octo files"`);
+  return 0;
 }
 
 function readText(file) {

@@ -56,11 +56,16 @@ ou nada extra no Copilot (o Playwright MCP é baixado sozinho).
    ```bash
    npx @luizguitm/octo init
    ```
-   Detecta os domínios (web, salesforce, python…), cria o `octo.config.json`, gera tudo e cria o seu
-   arquivo de preferências em `~/.octo/preferences.md` (se ainda não existir).
+   Detecta os domínios (web, salesforce, python…) e faz **três perguntas do time** (ENTER mantém o sugerido):
+   - versionar os arquivos do Octo no git? (não: ficam no `.gitignore`, ver seção 5);
+   - teste web com print por cenário no DoD? (se sim: URL e comando do app, ou o alias da org no Salesforce);
+   - padrão do nome da branch (sugerido: `{type}/{topic}-octo`).
+   Depois cria o `octo.config.json`, gera tudo e cria o seu arquivo de preferências em `~/.octo/preferences.md`.
+   Para refazer as perguntas depois: `npx @luizguitm/octo setup`.
 2. **Revise o `octo.config.json`**, principalmente `models` (os modelos que a empresa permite).
    Mudou algo? `npx @luizguitm/octo sync`.
-3. **Commite o que foi gerado** (`chore: install Octo`). Assim todo o time recebe a mesma configuração.
+3. **Commite o que foi gerado** (`chore: install Octo`): só o `octo.config.json`, o `AGENTS.md` e o
+   `.gitignore` se o framework ficar fora do git.
 4. **Abra o repositório** no Claude Code (`claude --chrome` se for testar UI) ou no VS Code com Copilot.
 5. **Prepare o contexto** (opcional): `/octo-context` faz um mapa **rápido** do repositório (cerca de 10 minutos,
    mesmo num monorepo grande). As áreas são detalhadas só quando uma tarefa passa por elas. Se você pular,
@@ -107,7 +112,9 @@ Use `npx @luizguitm/octo <comando>` (ou `octo <comando>` se instalou com `npm i 
 
 | Comando | O que faz |
 |---|---|
-| `init [--targets claude-code,copilot] [--domains web,salesforce] [--force]` | Cria a config, gera tudo e as preferências globais |
+| `init [--targets claude-code,copilot] [--domains web,salesforce] [--local] [--yes] [--force]` | Faz as perguntas do time, cria a config, gera tudo e as preferências globais (`--yes`: sem perguntas; `--local`: framework fora do git) |
+| `setup` | Refaz as perguntas do time (versionamento, teste web, nome de branch) e roda o `sync` |
+| `untrack` | Com `framework.commit: false`: tira do git os arquivos do Octo que ainda estavam versionados (sem apagar do disco) |
 | `sync` | Regenera tudo a partir do `octo.config.json` (rode após mudar a config ou atualizar o Octo) |
 | `doctor` | Valida a config e a instalação |
 | `config upgrade` | Acrescenta opções novas (de versões novas do Octo) com valores padrão |
@@ -196,6 +203,33 @@ Um documento pessoal curto diz aos agentes como **você** quer trabalhar, em tr�
 | `docs/superpowers/specs`, `plans`, `dod` | Specs, planos e Definition of Done | O agente cria; revise |
 | `.mcp.json`, `.vscode/mcp.json`, `.claude/settings.json`, `.vscode/settings.json` | Seus arquivos + entradas do Octo | Sim; o Octo só mexe nas entradas dele |
 
+### Framework fora do git (`framework.commit: false`)
+
+Para não versionar o framework (e não ter commits a cada atualização), use `"framework": { "commit": false }`
+no `octo.config.json` (ou `npx @luizguitm/octo init --local`). Aí:
+
+| O quê | Onde fica | Versionado? |
+|---|---|---|
+| `octo.config.json`, `AGENTS.md` (com um aviso de como instalar o Octo) | raiz | **Sim** |
+| Sessões, specs, planos, DoD | `.octo/sessions/`, `docs/superpowers/` | **Sim** (vão no PR) |
+| Skills, agentes, hooks, catálogo, scripts, manual | `.claude/skills/…`, `.claude/agents/octo-*`, `.github/agents/octo-*`, `.github/hooks/octo.json`, `.octo/` | Não (no `.gitignore`) |
+| Instruções do Octo | `.claude/rules/octo.md` e `.github/instructions/octo.instructions.md` (em vez do bloco no `CLAUDE.md` e no `copilot-instructions.md`) | Não |
+| Permissões e hooks do Claude Code | `.claude/settings.local.json` | Não |
+| `.mcp.json`, `.vscode/mcp.json`, `.vscode/settings.json` | Se o Octo criou o arquivo: continua com as entradas e vai para o `.gitignore`. Se o time já versiona o arquivo: o Octo **não mexe** e avisa no `sync` | – |
+
+Consequências:
+- **Cada pessoa roda `npx -y @luizguitm/octo@latest sync` depois de clonar** (e para atualizar). Sem isso, o
+  agente não tem o Octo; o `AGENTS.md` avisa e pede para rodar.
+- O agente do Copilot **na nuvem** (issues, review de PR no GitHub) não vê o Octo, porque os arquivos não estão
+  no repositório.
+- Se o time já versiona o `.vscode/settings.json` (comum em projetos Salesforce), a aprovação automática de
+  comandos no terminal do Copilot fica desligada: o Copilot pede confirmação um pouco mais vezes. Os bloqueios
+  de segurança continuam, pelo hook.
+
+**Migrar um repositório que já versionava o Octo:** numa branch, mude `framework.commit` para `false`, rode
+`npx -y @luizguitm/octo@latest sync`, depois `npx -y @luizguitm/octo@latest untrack` (tira os arquivos do git
+sem apagá-los do disco) e commite (`chore: stop versioning Octo files`).
+
 ## 6. Catálogo: domínios e tecnologias
 
 As skills de domínio **não** ficam sempre carregadas: o agente consulta o `.octo/catalog/INDEX.md` a cada fase
@@ -238,6 +272,7 @@ Lista atual completa: `npx @luizguitm/octo skills list --all`. Parte do catálog
 | `webTesting` | `enabled`, `baseUrl`, `startCommand`, `tools` por host | Chrome no Claude, Playwright no Copilot |
 | `dod` | `dir`, `extraCriteria` (critérios extras do time) | `docs/superpowers/dod` |
 | `sessions.commit` | Sessões (pedido original, decisões) vão para o git com o PR? | `true` |
+| `framework.commit` | Arquivos gerados do Octo vão para o git? (`false`: ficam no `.gitignore`, ver seção 5) | `true` |
 | `guardrails` | Comandos bloqueados/com confirmação/liberados, arquivos protegidos, `maxFixRounds` | ver arquivo |
 | `mcp` | `enable` (registro do Octo) e `servers` (MCPs do repositório) | vazio |
 | `imports.nativeInstructions` | Instructions do awesome-copilot nativas no Copilot | `[]` |
@@ -399,7 +434,7 @@ real: suba para `deep` só no modo de área, quando a arquitetura daquela parte 
 
 | O quê | Como |
 |---|---|
-| Octo em um repositório | `npx @luizguitm/octo@latest sync` e commite as mudanças |
+| Octo em um repositório | `npx @luizguitm/octo@latest sync` e commite as mudanças (com `framework.commit: false`, não há o que commitar) |
 | Opções novas da config | `npx @luizguitm/octo config upgrade` |
 | superpowers / awesome-copilot (mantenedores do framework) | `npm run upstream:update -- --source superpowers\|awesome-copilot` e `npm test` |
 

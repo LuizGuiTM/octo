@@ -40,7 +40,9 @@ export function removeManagedBlock(file) {
   if (start === -1 || end < start) return;
   const eol = existing.includes('\r\n') ? '\r\n' : '\n';
   const rest = existing.slice(0, start) + existing.slice(end + BLOCK_END.length);
-  writeFile(file, rest.replace(/(\r?\n){3,}/g, eol + eol));
+  // A file that only held Octo's block goes away with it.
+  if (!rest.trim()) fs.rmSync(file);
+  else writeFile(file, rest.replace(/(\r?\n){3,}/g, eol + eol).replace(/\s*$/, eol));
 }
 
 export function listFiles(dir) {

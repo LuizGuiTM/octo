@@ -26,8 +26,7 @@ the defaults.
 ## Before any implementation (mandatory, once per session)
 Before the first change of a session (`/octo-start`, `/octo-fix`, or any request that will edit code):
 1. **Octo up to date:** run `npx -y @luizguitm/octo@latest doctor`. If it reports an update, run
-   `npx -y @luizguitm/octo@latest sync`, commit only the files it changed (`chore: update Octo to <version>`)
-   on the work branch, and re-read this file (the block may have changed).
+   `npx -y @luizguitm/octo@latest sync`, {{octoUpdatePolicy}}, and re-read this file (the block may have changed).
 2. **Preferences reviewed** (see "First message of a session"): they must be, before any change.
 3. **Models:** only the models in "Models" below. When you dispatch subagents, one short line per batch says
    which agents and models (e.g. "3 × octo-explorer (haiku)"); no more. If a model isn't available on this host, **stop and ask** which allowed one to use; never let the host

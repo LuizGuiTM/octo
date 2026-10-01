@@ -48,6 +48,9 @@ Talk to the user in pt-BR; write code, skills and these docs in English. README 
 - `sync` never overwrites user content: only manifest-owned files, the `octo:begin/end` block, and JSON
   entries recorded under `managed` in `.octo/manifest.json`. `AGENTS.md` is created only if missing.
 - New config options go into `defaultConfig()`; `octo config upgrade` relies on it.
+- `framework.commit = false`: after `sync` + `untrack` + commit, a second `sync` must leave `git status` clean.
+  Instructions go to `.claude/rules/octo.md` / `.github/instructions/octo.instructions.md`, Claude settings to
+  `settings.local.json`; a versioned shared JSON file gets no Octo entries unless it holds only Octo's.
 - Guardrails must never contradict autonomy: `effectiveCommands()` moves granted push/PR commands out of `ask`.
 - Scripts in skills and `runtime/` run in product repos with only Node: no imports from `src/`.
 - Template variables must exist in `templateVars()` (+ `extra` from sync); `render` throws on unknown ones.

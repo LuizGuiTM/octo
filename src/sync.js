@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { adapters, templateVars } from './adapters.js';
@@ -64,6 +65,11 @@ export function sync(root, config) {
   const conflicts = [];
   const wantedLines = []; // lines Octo wants in user files (.gitignore, .gitattributes), reconciled at the end
   const wantLine = (file, entry, comment) => wantedLines.push({ file, entry, comment });
+  // framework.commit = false: generated files are git-ignored; nothing Octo writes should show up in git status.
+  const local = config.framework?.commit === false;
+  const tracked = local ? trackedFiles(root) : new Set();
+  const skippedShared = [];
+  const localShared = new Set(); // shared JSON files Octo writes to and git-ignores (framework.commit = false)
 
   // Native skills: superpowers verbatim + Octo core + chat commands + promoted domain skills + MCP usage skills.
   for (const skill of [...upstream, ...core, ...commandSkills(), ...promoted, ...mcpSkills]) {
@@ -92,7 +98,7 @@ export function sync(root, config) {
   own('.octo/octo.config.schema.json', fs.readFileSync(schemaFile()));
 
   // Keep generated files LF on every OS: superpowers' bash scripts break with CRLF.
-  for (const pattern of ['.claude/skills/** text=auto eol=lf', '.octo/** text=auto eol=lf']) {
+  for (const pattern of local ? [] : ['.claude/skills/** text=auto eol=lf', '.octo/** text=auto eol=lf']) {
     wantLine('.gitattributes', pattern, 'octo: generated files keep LF line endings (bash scripts break with CRLF)');
   }
 
@@ -111,6 +117,9 @@ export function sync(root, config) {
     complementsTable: complementsTable(upstream, [...core, ...promoted, ...mcpSkills], catalog.filter((s) => !promoted.includes(s))),
     guardrails: guardrailsText(config),
     sessionsCommit: config.sessions?.commit ? 'committed with the feature branch' : 'local only (git-ignored)',
+    octoUpdatePolicy: local
+      ? "Octo's files are git-ignored in this repo, so there is nothing to commit"
+      : 'commit only the files it changed (`chore: update Octo to <version>`) on the work branch',
   };
   const agentDefs = agents();
   const bootstrap = template('bootstrap.md');
@@ -119,7 +128,7 @@ export function sync(root, config) {
   // so a JSONC/invalid file aborts the sync cleanly instead of leaving the repo half-synced.
   const touches = (target) => config.targets.includes(target) || hasOwned(previous.managed?.[target]);
   for (const target of Object.keys(adapters).filter(touches)) {
-    const files = [adapters[target].mcp.file, target === 'claude-code' ? '.claude/settings.json' : '.vscode/settings.json'];
+    const files = [adapters[target].mcp.file, adapters[target].settingsFile(false), adapters[target].settingsFile(true)];
     for (const rel of files) readJson(path.join(root, rel));
   }
 
@@ -129,32 +138,63 @@ export function sync(root, config) {
     const adapter = adapters[target];
     const before = previous.managed?.[target] ?? {};
     const hostServers = active ? serversForHost(mcp, target) : {};
-    if (!active) removeManagedBlock(path.join(root, adapter.instructionsFile));
+    if (!active || local) removeManagedBlock(path.join(root, adapter.instructionsFile));
     if (!touches(target)) continue; // never installed for this host: leave its files alone
     if (active) {
       const vars = templateVars(config, target, { ...extra, mcpServers: mcpSummary(mcp, target) });
       for (const agent of agentDefs) {
         own(adapter.agentPath(agent), adapter.agentFile(agent, config, render(agent.body, vars)));
       }
-      upsertManagedBlock(path.join(root, adapter.instructionsFile), adapter.instructionsPrefix + render(bootstrap, vars));
+      const instructions = adapter.instructionsPrefix + render(bootstrap, vars);
+      if (local) own(adapter.localInstructionsPath, adapter.localInstructions(instructions));
+      else upsertManagedBlock(path.join(root, adapter.instructionsFile), instructions);
       if (target === 'copilot') own('.github/hooks/octo.json', `${JSON.stringify(copilotHooksFile(), null, 2)}\n`);
     }
+    // Shared JSON files: with framework.commit = false, a file the repo versions gets none of Octo's entries
+    // (they'd show up as changes); an unversioned one gets them and is git-ignored.
+    const shared = (rel, key, entries, previouslyOwned) => {
+      if (!local || !active) return entries;
+      if (tracked.has(rel) && !onlyOcto(root, rel, key, previouslyOwned)) {
+        if (Object.keys(entries).length) skippedShared.push(rel);
+        return Array.isArray(entries) ? [] : {};
+      }
+      wantLine('.gitignore', rel, LOCAL_COMMENT);
+      localShared.add(rel);
+      return entries;
+    };
     const after = {
-      mcp: syncMapEntries(root, adapter.mcp.file, adapter.mcp.rootKey, hostServers, before.mcp, conflicts),
+      mcp: syncMapEntries(root, adapter.mcp.file, adapter.mcp.rootKey, shared(adapter.mcp.file, adapter.mcp.rootKey, hostServers, before.mcp), before.mcp, conflicts),
     };
     if (target === 'claude-code') {
+      // Claude Code has a local settings file of its own (.claude/settings.local.json), so nothing is skipped there.
+      const file = adapter.settingsFile(local);
+      const previousFile = before.settingsFile ?? adapter.settingsFile(false);
       const settings = active ? claudeCodeSettings(config) : { permissions: { deny: [], ask: [], allow: [] }, hooks: [] };
-      for (const kind of ['deny', 'ask', 'allow']) {
-        after[kind] = syncListEntries(root, '.claude/settings.json', ['permissions', kind], settings.permissions[kind], before[kind]);
+      if (previousFile !== file) {
+        for (const kind of ['deny', 'ask', 'allow']) syncListEntries(root, previousFile, ['permissions', kind], [], before[kind]);
+        syncHooks(root, previousFile, [], before.hooks);
+        // Octo created it: once its entries moved out, an empty file goes away.
+        if (fs.existsSync(path.join(root, previousFile)) && !Object.keys(readJson(path.join(root, previousFile))).length) {
+          fs.rmSync(path.join(root, previousFile));
+        }
       }
-      after.hooks = syncHooks(root, '.claude/settings.json', settings.hooks, before.hooks);
+      const prior = previousFile === file ? before : {};
+      if (local && active) wantLine('.gitignore', file, LOCAL_COMMENT);
+      for (const kind of ['deny', 'ask', 'allow']) {
+        after[kind] = syncListEntries(root, file, ['permissions', kind], settings.permissions[kind], prior[kind]);
+      }
+      after.hooks = syncHooks(root, file, settings.hooks, prior.hooks);
+      after.settingsFile = file;
     } else {
       after.autoApprove = syncMapEntries(root, '.vscode/settings.json', 'chat.tools.terminal.autoApprove',
-        active ? copilotAutoApprove(config) : {}, before.autoApprove, conflicts);
+        shared('.vscode/settings.json', 'chat.tools.terminal.autoApprove', active ? copilotAutoApprove(config) : {}, before.autoApprove), before.autoApprove, conflicts);
     }
     managed[target] = after;
   }
   if (mcp.playwright) wantLine('.gitignore', `${EVIDENCE_DIR}/`, 'octo: raw browser screenshots (curated ones live in the DoD folder)');
+  if (local) {
+    for (const entry of localIgnores(owned.keys(), config)) wantLine('.gitignore', entry, LOCAL_COMMENT);
+  }
   // Manifests from Octo ≤ 0.1.1 have no line ownership: adopt lines that sit under an "# octo:" comment.
   const legacy = previous.files && !previous.lines;
   const lines = syncLines(root, wantedLines, previous.lines ?? [], legacy);
@@ -163,12 +203,16 @@ export function sync(root, config) {
   const agentsMd = path.join(root, 'AGENTS.md');
   const createdAgentsMd = !fs.existsSync(agentsMd);
   if (createdAgentsMd) writeFile(agentsMd, template('AGENTS.md'));
+  // AGENTS.md is versioned and read by every host: with the framework git-ignored, it tells a fresh clone how to
+  // get it. Constant text, so it never changes between Octo versions.
+  if (local) upsertManagedBlock(agentsMd, LOCAL_POINTER);
+  else removeManagedBlock(agentsMd);
 
   for (const [rel, content] of owned) writeOwned(path.join(root, rel), content);
   const stale = (previous.files ?? []).filter((rel) => !owned.has(rel));
   for (const rel of stale) fs.rmSync(path.join(root, rel), { force: true });
   pruneEmptyDirs(root, stale);
-  const manifest = { octo: packageVersion(), superpowers: info.commit, files: [...owned.keys()].sort(), managed, lines };
+  const manifest = { octo: packageVersion(), superpowers: info.commit, files: [...owned.keys()].sort(), managed, lines, ...(local ? { localShared: [...localShared].sort() } : {}) };
   writeFile(path.join(root, MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`);
 
   return {
@@ -183,7 +227,52 @@ export function sync(root, config) {
     mcpServers: Object.keys(mcp).filter((name) => config.targets.some((t) => !mcp[name].hosts || mcp[name].hosts.includes(t))),
     conflicts,
     createdAgentsMd,
+    skippedShared: [...new Set(skippedShared)],
+    // Files Octo owns that git still versions (from before framework.commit = false): `octo untrack` fixes it.
+    trackedOwned: local ? [...owned.keys(), ...localShared].map(toPosix).filter((rel) => tracked.has(rel)) : [],
   };
+}
+
+const LOCAL_COMMENT = 'octo: framework files are generated by "octo sync" (framework.commit = false)';
+const LOCAL_POINTER = [
+  'This repository uses the **Octo** AI framework (superpowers + Octo layer) for Claude Code and GitHub Copilot.',
+  'Its files are generated locally and git-ignored. If `.claude/rules/octo.md` and',
+  '`.github/instructions/octo.instructions.md` are both missing, Octo is not installed in this clone: before any',
+  'work, ask the user to run `npx -y @luizguitm/octo@latest sync` (or run it, if you can run commands).',
+].join('\n');
+
+// .gitignore entries covering every file Octo generates, compactly: whole skill folders, all of .octo/ except what
+// is versioned (sessions when sessions.commit = true), and the remaining files one by one.
+export function localIgnores(ownedPaths, config) {
+  const entries = new Set();
+  for (const rel of [...ownedPaths].map(toPosix).sort()) {
+    if (rel.startsWith('.octo/')) entries.add('.octo/*');
+    else if (rel.startsWith(`${SKILLS_DIR}/`)) entries.add(`${rel.split('/').slice(0, 3).join('/')}/`);
+    else entries.add(rel);
+  }
+  entries.add('.octo/*'); // the manifest lives there even when nothing else does
+  const ordered = ['.octo/*', ...(config.sessions?.commit ? ['!.octo/sessions/'] : []), ...[...entries].filter((e) => e !== '.octo/*')];
+  return ordered;
+}
+
+// A versioned JSON file holding nothing but Octo's entries was created by Octo, so it's Octo's to git-ignore.
+function onlyOcto(root, rel, key, previouslyOwned = []) {
+  const rest = { ...readJson(path.join(root, rel)) };
+  const map = { ...(rest[key] ?? {}) };
+  for (const name of previouslyOwned) delete map[name];
+  delete rest[key];
+  return Object.keys(map).length === 0 && Object.keys(rest).length === 0;
+}
+
+// Files git versions under the paths Octo writes to (one call, limited to those paths: fast on big monorepos).
+function trackedFiles(root) {
+  try {
+    const out = execFileSync('git', ['-C', root, 'ls-files', '-z', '--', '.claude', '.github', '.octo', '.vscode', '.mcp.json', 'CLAUDE.md'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
+    return new Set(out.split('\0').filter(Boolean));
+  } catch {
+    return new Set(); // not a git repo
+  }
 }
 
 const hasOwned = (entries) => Object.values(entries ?? {}).some((list) => Array.isArray(list) && list.length);

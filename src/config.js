@@ -120,6 +120,12 @@ export function defaultConfig({ domains = DEFAULT_DOMAINS, targets = TARGETS } =
       dir: 'docs/superpowers/dod',
       extraCriteria: [],
     },
+    framework: {
+      // true: Octo's generated files (skills, agents, instructions, hooks) are versioned so the whole team and
+      // cloud agents get them; false: they're git-ignored and every developer runs `octo sync` after cloning
+      // (only octo.config.json and AGENTS.md are versioned).
+      commit: true,
+    },
     sessions: {
       // true: each request's session (verbatim request, decisions, log) travels with its branch and PR;
       // false: session files stay local (git-ignored).
