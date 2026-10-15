@@ -339,8 +339,11 @@ pede. O Octo instala:
 | Antes de cada comando/edição | `PreToolUse` | `preToolUse` | `octo-guard.mjs` lê o comando **inteiro** e bloqueia force push, `reset --hard`, `clean -fd`, `branch -D` e acesso a arquivos protegidos |
 | Ao encerrar | `Stop` | – | Na fase de finalização, não deixa o agente parar com commits sem push: ele termina com o PR ou o link |
 
-No VS Code, os hooks do Copilot dependem de `chat.useHooks`, que já vem ligado. Os do Claude Code
-(`.claude/settings.json`) o VS Code só lê se `chat.useClaudeHooks` estiver ligado, o que evita rodar em dobro.
+No VS Code, os hooks do Copilot dependem de `chat.useHooks`, que já vem ligado. Versões recentes do VS Code e do
+Copilot CLI também rodam os hooks do Claude Code (`.claude/settings*.json`), no Windows pelo PowerShell. Se um hook
+falha ao iniciar, eles negam **todas** as ferramentas ("Denied by preToolUse hook from repo settings (hook
+errored)"). Desde a 0.4.1, os comandos dos hooks do Claude Code funcionam em bash e PowerShell e, fora do Claude
+Code, não falham nunca. Se aparecer esse erro, rode `npx -y @luizguitm/octo@latest sync` e recarregue a janela.
 
 ### Autonomia e pull requests
 

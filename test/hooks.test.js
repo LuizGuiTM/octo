@@ -132,3 +132,33 @@ test('the stop hook keeps the agent going once when the finish phase has unpushe
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+// VS Code and Copilot CLI run the Claude Code hooks too: on Windows through PowerShell, without CLAUDE_PROJECT_DIR,
+// sometimes from another cwd, and they deny every tool call when a hook fails to launch.
+test('Claude Code hook commands work in any shell and never fail to launch', () => {
+  const root = installed();
+  const elsewhere = tempDir();
+  const env = { ...process.env };
+  delete env.CLAUDE_PROJECT_DIR;
+  const run = (shell, cwd, input, extra = {}) => spawnSync(shell, ['-c', GUARD_HOOK_COMMAND], {
+    cwd, input, encoding: 'utf8', env: { ...env, ...extra },
+  });
+  const push = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git push origin main --force' } });
+  try {
+    assert.doesNotMatch(GUARD_HOOK_COMMAND, /"|\$CLAUDE_PROJECT_DIR/, 'no double quotes (PowerShell 5.1) and no shell variables');
+    assert.equal(run('bash', root, push).status, 2, 'repo root, no CLAUDE_PROJECT_DIR');
+    assert.equal(run('bash', elsewhere, push, { CLAUDE_PROJECT_DIR: root }).status, 2, 'other cwd, CLAUDE_PROJECT_DIR');
+    assert.equal(run('bash', elsewhere, push).status, 0, 'script not found: no-op, not an error');
+    // Windows PowerShell 5.1 pipes stdin with a BOM: the guard must still parse it.
+    assert.equal(run('bash', root, `﻿${push}`).status, 2, 'BOM-prefixed input');
+    if (process.platform === 'win32') {
+      const ps = spawnSync('powershell', ['-NoProfile', '-Command', `$input | ${GUARD_HOOK_COMMAND}; exit $LASTEXITCODE`], {
+        cwd: root, input: push, encoding: 'utf8', env,
+      });
+      assert.equal(ps.status, 2, `PowerShell: ${ps.stderr}`);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(elsewhere, { recursive: true, force: true });
+  }
+});

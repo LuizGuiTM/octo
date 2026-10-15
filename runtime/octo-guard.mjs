@@ -13,7 +13,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 function readStdin() {
   try {
-    return JSON.parse(fs.readFileSync(0, 'utf8') || '{}');
+    // Windows PowerShell 5.1 prefixes piped stdin with a BOM; JSON.parse would fail and the guard would allow.
+    return JSON.parse(fs.readFileSync(0, 'utf8').replace(/^﻿/, '') || '{}');
   } catch {
     return {};
   }

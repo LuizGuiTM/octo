@@ -1,10 +1,18 @@
 // Guardrails and session hooks, translated into each host's native settings.
 // Claude Code enforces permissions (deny really blocks); Copilot can only require confirmation.
 
-export const SESSION_HOOK_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.octo/bin/octo-session.mjs" hook session-start';
-export const PROMPT_HOOK_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.octo/bin/octo-session.mjs" hook prompt';
-export const GUARD_HOOK_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.octo/bin/octo-guard.mjs" pre-tool';
-export const STOP_HOOK_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.octo/bin/octo-guard.mjs" stop';
+// VS Code and Copilot CLI also run these Claude Code hooks, on Windows through PowerShell, without CLAUDE_PROJECT_DIR
+// and sometimes from another cwd; a hook that fails to launch there is fail-closed and denies every tool call. So the
+// command is valid in bash and PowerShell (single quotes, backtick strings, no double quotes or spaces) and never
+// fails to launch: it finds the script from CLAUDE_PROJECT_DIR (or the cwd) and does nothing when it isn't there.
+// Copilot has its own hooks (.github/hooks/octo.json) that enforce the same guard.
+const claudeHook = (script, args) =>
+  `node -e 'const p=require(\`path\`).join(process.env.CLAUDE_PROJECT_DIR||\`.\`,\`.octo/bin/${script}\`);` +
+  `process.argv.splice(1,0,p);import(require(\`url\`).pathToFileURL(p)).catch(()=>{})' ${args}`;
+export const SESSION_HOOK_COMMAND = claudeHook('octo-session.mjs', 'hook session-start');
+export const PROMPT_HOOK_COMMAND = claudeHook('octo-session.mjs', 'hook prompt');
+export const GUARD_HOOK_COMMAND = claudeHook('octo-guard.mjs', 'pre-tool');
+export const STOP_HOOK_COMMAND = claudeHook('octo-guard.mjs', 'stop');
 
 // Copilot hooks (.github/hooks/octo.json): read by Copilot CLI, the cloud agent and VS Code (chat.useHooks, on by
 // default). Paths are relative to the repo root; the cloud agent only honors `bash`, local Windows uses `powershell`.
