@@ -140,22 +140,25 @@ test('Claude Code hook commands work in any shell and never fail to launch', () 
   const elsewhere = tempDir();
   const env = { ...process.env };
   delete env.CLAUDE_PROJECT_DIR;
-  const run = (shell, cwd, input, extra = {}) => spawnSync(shell, ['-c', GUARD_HOOK_COMMAND], {
-    cwd, input, encoding: 'utf8', env: { ...env, ...extra },
-  });
+  // Each shell that exists here: bash (Claude Code, Git Bash) and, on Windows, PowerShell (VS Code, Copilot CLI).
+  const shells = {
+    bash: (cmd) => ['bash', ['-c', cmd]],
+    ...(process.platform === 'win32' && { powershell: (cmd) => ['powershell', ['-NoProfile', '-Command', `$input | ${cmd}; exit $LASTEXITCODE`]] }),
+  };
+  const available = Object.entries(shells).filter(([, argv]) => spawnSync(...argv('exit 0')).status === 0);
   const push = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git push origin main --force' } });
   try {
     assert.doesNotMatch(GUARD_HOOK_COMMAND, /"|\$CLAUDE_PROJECT_DIR/, 'no double quotes (PowerShell 5.1) and no shell variables');
-    assert.equal(run('bash', root, push).status, 2, 'repo root, no CLAUDE_PROJECT_DIR');
-    assert.equal(run('bash', elsewhere, push, { CLAUDE_PROJECT_DIR: root }).status, 2, 'other cwd, CLAUDE_PROJECT_DIR');
-    assert.equal(run('bash', elsewhere, push).status, 0, 'script not found: no-op, not an error');
-    // Windows PowerShell 5.1 pipes stdin with a BOM: the guard must still parse it.
-    assert.equal(run('bash', root, `﻿${push}`).status, 2, 'BOM-prefixed input');
-    if (process.platform === 'win32') {
-      const ps = spawnSync('powershell', ['-NoProfile', '-Command', `$input | ${GUARD_HOOK_COMMAND}; exit $LASTEXITCODE`], {
-        cwd: root, input: push, encoding: 'utf8', env,
-      });
-      assert.equal(ps.status, 2, `PowerShell: ${ps.stderr}`);
+    assert.ok(available.length, 'no shell to test with');
+    for (const [name, argv] of available) {
+      const run = (cwd, input, extra = {}) => spawnSync(...argv(GUARD_HOOK_COMMAND), {
+        cwd, input, encoding: 'utf8', env: { ...env, ...extra },
+      }).status;
+      assert.equal(run(root, push), 2, `${name}: repo root, no CLAUDE_PROJECT_DIR`);
+      assert.equal(run(elsewhere, push, { CLAUDE_PROJECT_DIR: root }), 2, `${name}: other cwd, CLAUDE_PROJECT_DIR`);
+      assert.equal(run(elsewhere, push), 0, `${name}: script not found is a no-op, not an error`);
+      // Windows PowerShell 5.1 pipes stdin with a BOM (the PowerShell runs above already do): the guard must parse it.
+      if (name === 'bash') assert.equal(run(root, `﻿${push}`), 2, `${name}: BOM-prefixed input`);
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
